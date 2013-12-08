@@ -4,13 +4,12 @@
  */
 
 #ifndef _DEBUG_H
-#define _DEBUG_H
-int errprintf(const char* format, ...);
-#endif
-
-
-#ifdef DEBUG
-# define DEBUG_PRINT(x) errprintf x
-#else
-# define DEBUG_PRINT(x) do {} while (0)
+    #define _DEBUG_H
+    #include <stdio.h>
+    
+    #ifdef DEBUG
+        #define DEBUG_PRINT(...) fprintf(stderr, __VA_ARGS__)
+    #else
+        #define DEBUG_PRINT(...) do {} while (0)
+    #endif
 #endif
