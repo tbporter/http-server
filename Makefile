@@ -8,8 +8,8 @@ LDLIBS=-lpthread
 CFLAGS=-Wall -Werror -Wmissing-prototypes
 #YFLAGS=-v
 
-OBJECTS=server.o list.o threadpool.o
-HEADERS=server.h list.h threadpool.h
+OBJECTS=server.o list.o threadpool.o parse.o
+HEADERS=server.h list.h threadpool.h parse.h
 PLUGINDIR=plugins
 
 default: http-server
