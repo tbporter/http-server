@@ -6,6 +6,7 @@
 #include <string.h>
 #include <error.h>
 #include <pthread.h>
+#include <poll.h>
 
 #include "server.h"
 #include "debug.h"
@@ -16,8 +17,8 @@
 #define LISTEN_PORT 9000
 
 static pthread_mutex_t connections_mutex = PTHREAD_MUTEX_INITIALIZER;
-static fd_set connections;
-static int connections_max = 0;
+static struct pollfd* connections;
+static int connections_n = 0;
 
 static pthread_mutex_t socket_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 static struct list socket_list;
@@ -32,8 +33,11 @@ int main(int argv, char** argc) {
     /* Take care of the socket_list */
     list_init(&socket_list);
 
-    /* Setup the fdset for select */
-    FD_ZERO(&connections);
+    /* Setup the pollfd* for poll */
+    if ((connections = calloc(1024, sizeof(struct pollfd))) == NULL) {
+        perror("Allocating pollfd array");
+        return -1;
+    }
 
     /* Start the polling thread */
     pthread_t polling;
@@ -68,10 +72,12 @@ int main(int argv, char** argc) {
         pthread_mutex_unlock(&socket_list_mutex);
         /* Now set up the fdset */
         pthread_mutex_lock(&connections_mutex);
-        DEBUG_PRINT("Add connection %d to fdset\n", connection);
-        FD_SET(connection, &connections);
-        if (connections_max < connection)
-            connections_max = connection;
+        DEBUG_PRINT("Add connection %d to pollfd\n", connection);
+        connections[connections_n].fd = connection;
+        connections[connections_n].events = POLLIN;
+        ++connections_n;
+        /* Get the pointer right */
+        new_socket->poll_fd = connections + connections_n - 1;
         pthread_mutex_unlock(&connections_mutex);
     }
 
@@ -79,37 +85,39 @@ int main(int argv, char** argc) {
 }
 
 void* check_connections(void* data) {
-    struct timeval timeout;
     /* TODO: All the error handling */
     while (true) {
-        timeout.tv_sec = 2;
-        timeout.tv_usec = 0;
-        pthread_mutex_lock(&connections_mutex);
-        int ready = select(connections_max + 1, &connections, NULL, NULL, &timeout);
-        DEBUG_PRINT("Selecting with %d ready and %d max\n", ready, connections_max);
+        int ready = poll(connections, connections_n, 2000);
+        DEBUG_PRINT("Polling with %d ready and %d number\n", ready, connections_n);
         int handled = 0;
-        pthread_mutex_unlock(&connections_mutex);
         /* short circuit locking */
         if (ready == 0) {
             sched_yield();
             continue;
         }
-        DEBUG_PRINT("Readable connections exist!\n");
+        DEBUG_PRINT("%d readable connections exist!\n", ready);
         /* Check readable connections */
         struct list_elem* current;
         /* We need to lock this down while grepping it */
         pthread_mutex_lock(&socket_list_mutex);
+        int i = 0;
+        for (; i < connections_n; i++) {
+            DEBUG_PRINT("%d - %hd\n", connections[i].fd, connections[i].revents);
+        }
         for (current = list_front(&socket_list); 
                 handled < ready; 
                 current = list_next(current)) {
             /* Get the current socket from the list */
             struct http_socket* current_socket = list_entry(current, struct
                     http_socket, elem);
+            struct pollfd* poll_fd = current_socket->poll_fd;
             /* Check if it is ready */
-            if (FD_ISSET(current_socket->fd, &connections)) {
-                DEBUG_PRINT("Ready socket %d, removing from list\n", current_socket->fd);
+            DEBUG_PRINT("%p - %x\n", poll_fd, poll_fd->revents);
+            if (poll_fd->fd > 0 && poll_fd->revents & POLLIN) {
+                poll_fd->fd = -1;
+                DEBUG_PRINT("Ready socket %d, removing from list\n",
+                        current_socket->fd);
                 /* TODO: Let other function add it back in when it's ready */
-                FD_CLR(current_socket->fd, &connections);
                 /* TODO: call appropiate function */
                 ++handled;
             }
