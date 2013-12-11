@@ -14,11 +14,11 @@ int parse_is_header_finished(char* buf, int buf_len){
     return 0;
 }
 
-void parse_header(char* buf, int buf_len){
+void parse_header(char* buf, int buf_len, struct http_header* header){
 	if(!parse_is_header_finished(buf,buf_len)){
 		return;
 	}
-	char method[BUF_LEN], uri[BUF_LEN], ver[BUF_LEN], tmp[BUF_LEN];
+	char tmp[BUF_LEN];
 	char* str_s = buf;
 	int str_s_len;
 
@@ -28,8 +28,7 @@ void parse_header(char* buf, int buf_len){
 		return; //TODO: error!
 
 	strncpy(tmp, str_s, str_s_len);
-	sscanf(tmp, "%s %s %s\n", method, uri, ver);
-
+	sscanf(tmp, "%s %s %s\n", header->method, header->uri, header->ver);
 }
 
 int parse_string(char* start, int buf_len){
