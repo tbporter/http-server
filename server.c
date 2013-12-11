@@ -1,31 +1,65 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <error.h>
+#include <pthread.h>
 
 #include "server.h"
 #include "debug.h"
 
-#define BACKLOG_QUEUE 50
 #define SA struct sockaddr
+
+#define BACKLOG_QUEUE 50
 #define LISTEN_PORT 9000
+
+static pthread_mutex_t connections_mutex = PTHREAD_MUTEX_INITIALIZER;
+static fd_set connections;
+static int connections_n = 0;
 
 int main(int argv, char** argc) {
     int listening_sock;
     struct sockaddr_in clientaddr;
+    /* Initialize the listening socket */
     if ((listening_sock = open_listenfd(LISTEN_PORT)) < 0)
         return -1;
 
     socklen_t clientlen = sizeof(clientaddr);
 
-    int connection;
-    if ((connection = accept(listening_sock, (SA *)&clientaddr, &clientlen)) < 0) {
-        perror("Waiting on a connection");
+    FD_ZERO(&connections);
+
+    pthread_t polling;
+    pthread_create(&polling, NULL, check_connections, NULL);
+
+    /* Accept a connection */
+    while (true) {
+        int connection;
+        if ((connection = accept(listening_sock, (SA *)&clientaddr,
+                        &clientlen)) < 0) {
+            perror("Waiting on a connection");
+            return -1;
+        }
+        pthread_mutex_lock(&connections_mutex);
+        DEBUG_PRINT("Add connection %d\n", connection);
+        FD_SET(connection, &connections);    
+        connections_n++;
+        pthread_mutex_unlock(&connections_mutex);
+        
     }
-    DEBUG_PRINT("Add fd %d to the FD set\n", connection);
 
     return 0;
+}
+
+void* check_connections(void* data) {
+    struct timeval timeout = {0, 0};
+    while (true) {
+        pthread_mutex_lock(&connections_mutex);
+        select(connections_n, &connections, NULL, NULL, &timeout);
+        /* Check readable connections */
+        pthread_mutex_unlock(&connections_mutex);
+        sched_yield();
+    }
 }
 
 int open_listenfd(int port) {
