@@ -2,7 +2,7 @@
 #include <string.h>
 #include "parse.h"
 
-#define BUF_LEN 512
+#define BUF_LEN 1024
 
 int parse_is_header_finished(char* buf, int buf_len){
     int i;
@@ -14,9 +14,9 @@ int parse_is_header_finished(char* buf, int buf_len){
     return 0;
 }
 
-void parse_header(char* buf, int buf_len, struct http_header* header){
+int parse_header(char* buf, int buf_len, struct http_request* req){
 	if(!parse_is_header_finished(buf,buf_len)){
-		return;
+		return 0;
 	}
 	char tmp[BUF_LEN];
 	char* str_s = buf;
@@ -25,10 +25,11 @@ void parse_header(char* buf, int buf_len, struct http_header* header){
 
 	str_s_len = parse_string(str_s, buf_len);
 	if(str_s_len<0)
-		return; //TODO: error!
+		return 0; //TODO: error!
 
 	strncpy(tmp, str_s, str_s_len);
-	sscanf(tmp, "%s %s %s\n", header->method, header->uri, header->ver);
+	sscanf(tmp, "%s %s %s\n", req->method, req->uri, req->ver);
+	return 1;
 }
 
 int parse_string(char* start, int buf_len){

@@ -8,6 +8,7 @@ void* check_connections(void* data);
 struct http_socket {
     int fd;
     char* read_buffer;
+    int buf_size;
     time_t last_access;
     struct list_elem elem;
 };
