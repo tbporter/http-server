@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
@@ -16,7 +17,10 @@
 
 static pthread_mutex_t connections_mutex = PTHREAD_MUTEX_INITIALIZER;
 static fd_set connections;
-static int connections_n = 0;
+static int connections_max = 0;
+
+static pthread_mutex_t socket_list_mutex = PTHREAD_MUTEX_INITIALIZER;
+static struct list socket_list;
 
 int main(int argv, char** argc) {
     int listening_sock;
@@ -24,40 +28,93 @@ int main(int argv, char** argc) {
     /* Initialize the listening socket */
     if ((listening_sock = open_listenfd(LISTEN_PORT)) < 0)
         return -1;
+    
+    /* Take care of the socket_list */
+    list_init(&socket_list);
 
-    socklen_t clientlen = sizeof(clientaddr);
-
+    /* Setup the fdset for select */
     FD_ZERO(&connections);
 
+    /* Start the polling thread */
     pthread_t polling;
     pthread_create(&polling, NULL, check_connections, NULL);
 
+    /* We need this for accept */
+    socklen_t clientlen = sizeof(clientaddr);
     /* Accept a connection */
     while (true) {
         int connection;
+        DEBUG_PRINT("Waiting for new connections\n");
         if ((connection = accept(listening_sock, (SA *)&clientaddr,
                         &clientlen)) < 0) {
             perror("Waiting on a connection");
             return -1;
         }
+        DEBUG_PRINT("Got ahold of new connection\n");
+        /* Handle our structures first in case there is an intermediate read */
+        struct http_socket* new_socket;
+        if ((new_socket = calloc(1, sizeof(struct http_socket))) == NULL) {
+            perror("Allocating a new http_socket");
+            return -1;
+        }
+        new_socket->fd = connection;
+        /* TODO: Set this to current time */
+        new_socket->last_access = 0;
+        /* Lock it down while we access it */
+        /* TODO: All the error checks */
+        pthread_mutex_lock(&socket_list_mutex);
+        DEBUG_PRINT("Add new socket fd:%d to socket_list\n", connection);
+        list_push_front(&socket_list, &new_socket->elem);
+        pthread_mutex_unlock(&socket_list_mutex);
+        /* Now set up the fdset */
         pthread_mutex_lock(&connections_mutex);
-        DEBUG_PRINT("Add connection %d\n", connection);
-        FD_SET(connection, &connections);    
-        connections_n++;
+        DEBUG_PRINT("Add connection %d to fdset\n", connection);
+        FD_SET(connection, &connections);
+        if (connections_max < connection)
+            connections_max = connection;
         pthread_mutex_unlock(&connections_mutex);
-        
     }
 
     return 0;
 }
 
 void* check_connections(void* data) {
-    struct timeval timeout = {0, 0};
+    struct timeval timeout;
+    /* TODO: All the error handling */
     while (true) {
+        timeout.tv_sec = 2;
+        timeout.tv_usec = 0;
         pthread_mutex_lock(&connections_mutex);
-        select(connections_n, &connections, NULL, NULL, &timeout);
-        /* Check readable connections */
+        int ready = select(connections_max + 1, &connections, NULL, NULL, &timeout);
+        DEBUG_PRINT("Selecting with %d ready and %d max\n", ready, connections_max);
+        int handled = 0;
         pthread_mutex_unlock(&connections_mutex);
+        /* short circuit locking */
+        if (ready == 0) {
+            sched_yield();
+            continue;
+        }
+        DEBUG_PRINT("Readable connections exist!\n");
+        /* Check readable connections */
+        struct list_elem* current;
+        /* We need to lock this down while grepping it */
+        pthread_mutex_lock(&socket_list_mutex);
+        for (current = list_front(&socket_list); 
+                handled < ready; 
+                current = list_next(current)) {
+            /* Get the current socket from the list */
+            struct http_socket* current_socket = list_entry(current, struct
+                    http_socket, elem);
+            /* Check if it is ready */
+            if (FD_ISSET(current_socket->fd, &connections)) {
+                DEBUG_PRINT("Ready socket %d, removing from list\n", current_socket->fd);
+                /* TODO: Let other function add it back in when it's ready */
+                FD_CLR(current_socket->fd, &connections);
+                /* TODO: call appropiate function */
+                ++handled;
+            }
+        }
+        pthread_mutex_unlock(&socket_list_mutex);
         sched_yield();
     }
 }
