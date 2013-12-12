@@ -215,7 +215,7 @@ void* future_get(struct future* f){
 }
 
 void* future_get_no_block(struct future* f){
-    int ret = sem_try_wait(&(f->sem));
+    int ret = sem_trywait(&(f->sem));
     
     if (ret == -1) {
         perror("Error waiting on future semaphore\n");
