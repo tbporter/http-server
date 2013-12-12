@@ -73,7 +73,7 @@ void* write_conn(void* data){
 			socket->data_buffer_pos += count;
 		}
 
-	} while(is_write_buffer_finished(socket) && is_data_buffer_finished(socket) && count != 0);
+	} while(!is_write_buffer_finished(socket) && !is_data_buffer_finished(socket) && count != 0);
 	
 	if(is_write_buffer_finished(socket) && is_data_buffer_finished(socket)){
 		DEBUG_PRINT("FINISHED WRITING YO\n");
