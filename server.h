@@ -10,6 +10,9 @@ struct http_socket {
     struct pollfd* poll_fd;
     char* read_buffer;
     int read_buffer_size;
+    char* write_buffer;
+    int write_buffer_size;
+    int write_buffer_pos;
     time_t last_access;
     struct list_elem elem;
 };

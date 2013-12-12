@@ -26,7 +26,7 @@ int parse_header(char* buf, int buf_len, struct http_request* req){
 	str_s_len = parse_string(str_s, buf_len);
 	if(str_s_len<0){
 		DEBUG_PRINT("no string!\n");
-		return 0; //TODO: error!
+		return 0;
 	}
 
 	strncpy(tmp, str_s, str_s_len);
