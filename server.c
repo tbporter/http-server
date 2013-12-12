@@ -6,7 +6,7 @@
 #include <string.h>
 #include <error.h>
 #include <pthread.h>
-#include <poll.h>
+#include <sys/epoll.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -22,17 +22,14 @@
 
 #define POOL_THREADS 6
 
-static pthread_mutex_t connections_mutex = PTHREAD_MUTEX_INITIALIZER;
-static struct pollfd* connections;
-static int connections_n = 0;
+/* Properly set reading events */
+#define EPOLL_READ EPOLLIN | EPOLLRDHUP | EPOLLONESHOT
+#define EPOLL_WRITE EPOLLOUT | EPOLLRDHUP | EPOLLONESHOT
+#define EVENT_QUEUE 8
 
-static pthread_mutex_t socket_list_mutex = PTHREAD_MUTEX_INITIALIZER;
-static struct list socket_list;
+static int epoll_fd;
 
 static struct thread_pool* tpool;
-
-static pthread_mutex_t future_mutex = PTHREAD_MUTEX_INITIALIZER;
-static struct list future_list;
 
 int main(int argv, char** argc) {
     int listening_sock;
@@ -41,15 +38,12 @@ int main(int argv, char** argc) {
     if ((listening_sock = open_listenfd(LISTEN_PORT)) < 0)
         return -1;
     
-    /* Take care of the lists */
-    list_init(&socket_list);
-    list_init(&future_list);
     /* Thread pool initialization */
     tpool = thread_pool_new(POOL_THREADS);
 
-    /* Setup the pollfd* for poll */
-    if ((connections = calloc(1024, sizeof(struct pollfd))) == NULL) {
-        perror("Allocating pollfd array");
+    /* Set up the read epoll */
+    if ((epoll_fd = epoll_create(1)) < 0) {
+        perror("Creating read epoll\n");
         return -1;
     }
 
@@ -69,9 +63,11 @@ int main(int argv, char** argc) {
             return -1;
         }
         DEBUG_PRINT("Got ahold of new connection\n");
-        /* Lets set this connection correctly */
+
+        /* Make socket non-blocking */
         int flags = fcntl(connection, F_GETFL, 0);
         fcntl(connection, F_SETFL, flags | O_NONBLOCK);
+
         /* Handle our structures first in case there is an intermediate read */
         struct http_socket* new_socket;
         if ((new_socket = calloc(1, sizeof(struct http_socket))) == NULL) {
@@ -81,77 +77,41 @@ int main(int argv, char** argc) {
         new_socket->fd = connection;
         /* TODO: Set this to current time */
         new_socket->last_access = 0;
-        /* Lock it down while we access it */
         /* TODO: All the error checks */
-        pthread_mutex_lock(&socket_list_mutex);
-        DEBUG_PRINT("Add new socket fd:%d to socket_list\n", connection);
-        list_push_front(&socket_list, &new_socket->elem);
-        pthread_mutex_unlock(&socket_list_mutex);
-        /* Now set up the fdset */
-        pthread_mutex_lock(&connections_mutex);
-        DEBUG_PRINT("Add connection %d to pollfd\n", connection);
-        connections[connections_n].fd = connection;
-        connections[connections_n].events = POLLIN;
-        ++connections_n;
-        /* Get the pointer right */
-        new_socket->poll_fd = connections + connections_n - 1;
-        pthread_mutex_unlock(&connections_mutex);
+        new_socket->event.events = EPOLL_READ;
+        new_socket->event.data.ptr = new_socket;
+        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, connection, &new_socket->event) < 0) {
+            perror("Adding new connection to epoll");
+            return -1;
+        }
     }
-
     return 0;
 }
 
 void* check_connections(void* data) {
+    struct epoll_event ready_events[EVENT_QUEUE];
     /* TODO: All the error handling */
     while (true) {
-        int ready = poll(connections, connections_n, 2000);
-        DEBUG_PRINT("Polling with %d ready and %d number\n", ready, connections_n);
-        int handled = 0;
-        /* short circuit locking */
-        if (ready == 0) {
-            sched_yield();
-            continue;
-        }
-        DEBUG_PRINT("%d readable connections exist!\n", ready);
-        /* Check readable connections */
-        struct list_elem* current;
-        /* We need to lock this down while grepping it */
-        pthread_mutex_lock(&socket_list_mutex);
-        int i = 0;
-        for (; i < connections_n; i++) {
-            DEBUG_PRINT("%d - %hd\n", connections[i].fd, connections[i].revents);
-        }
-        for (current = list_front(&socket_list); 
-                handled < ready; 
-                current = list_next(current)) {
-            /* Get the current socket from the list */
-            struct http_socket* current_socket = list_entry(current, struct
-                    http_socket, elem);
-            struct pollfd* poll_fd = current_socket->poll_fd;
-            /* Check if it is ready */
-            DEBUG_PRINT("%p - %x\n", poll_fd, poll_fd->revents);
-            if (poll_fd->fd > 0 && poll_fd->revents & POLLIN) {
-                poll_fd->fd = -1;
-                DEBUG_PRINT("Ready socket %d, removing from list\n",
-                        current_socket->fd);
-                /* TODO: Let other function add it back in when it's ready */
-                struct future_elem* current_future = calloc(1, sizeof(struct future_elem));
-                if (current_future == NULL) {
-                    perror("Allocating future_elem after a poll\n");
-                    exit(EXIT_FAILURE);
-                }
-                current_future->future = thread_pool_submit(tpool, read_conn,
-                        (void*) current_socket);
-                /* Add future to list */
-                pthread_mutex_lock(&future_mutex);
-                list_push_back(&future_list, &current_future->elem);
-                pthread_mutex_unlock(&future_mutex);
-                /* TODO: call appropiate function */
-                ++handled;
+        int ready = epoll_wait(epoll_fd, ready_events, 10, -1);
+        DEBUG_PRINT("epoll with %d ready\n", ready);
+        int i;
+        for (i = 0; i < ready; i++) {
+            if (ready_events[i].events & EPOLLRDHUP & EPOLLERR & EPOLLHUP) {
+                /* TODO: remove/close fd */
+            }
+            else if (ready_events[i].events & EPOLLIN) {
+                DEBUG_PRINT("Found a read event for %d\n",
+                        ((struct http_socket*) ready_events[i].data.ptr)->fd);
+                /* TODO: memory leak from allocated future */
+                thread_pool_submit(tpool, read_conn, (void*)
+                        ready_events[i].data.ptr);
+            }
+            else if (ready_events[i].events & EPOLLOUT) {
+                DEBUG_PRINT("Found a write availability for %d\n",
+                        ((struct http_socket*) ready_events[i].data.ptr)->fd);
+                /* TODO: write function */
             }
         }
-        pthread_mutex_unlock(&socket_list_mutex);
-        sched_yield();
     }
 }
 
@@ -191,4 +151,21 @@ int open_listenfd(int port) {
     }
 
     return listenfd;
+}
+
+int watch_read(struct http_socket* http) {
+    http->event.events = EPOLL_READ;
+    return epoll_ctl(epoll_fd, EPOLL_CTL_MOD, http->fd, &http->event);
+}
+int watch_write(struct http_socket* http) {
+    http->event.events = EPOLL_WRITE;
+    return epoll_ctl(epoll_fd, EPOLL_CTL_MOD, http->fd, &http->event);
+}
+int destroy_socket(struct http_socket* http){
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, http->fd, &http->event)) {
+        perror("Destroying socket\n");
+        return -1;
+    }
+    free(http);
+    return 0;
 }
