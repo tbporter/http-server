@@ -212,7 +212,7 @@ int allocanon() {
     pthread_mutex_lock(&anon_list_mutex);
     /* Handle initialization case */
     if (anon_list == NULL) {
-        if (calloc(10, sizeof(void*))) {
+        if ((anon_list = calloc(10, sizeof(void*))) == NULL) {
             perror("Error allocating anon_list");
             pthread_mutex_unlock(&anon_list_mutex);
             return -1;
@@ -221,16 +221,16 @@ int allocanon() {
         anon_list_size = 10;
     }
     /* anon_list_n will be anon_list_size + 1 when a expansion is needed */
-    else if (anon_list_n > anon_list_size) {
+    else if (anon_list_n >= anon_list_size) {
+        DEBUG_PRINT("Extending anon_list from %d\n", anon_list_size);
         void* new_list;
         if ((new_list = realloc(anon_list, anon_list_size + 10)) == NULL) {
             perror("Error realloc anon_list");
             pthread_mutex_unlock(&anon_list_mutex);
             return -1;
         }
+        DEBUG_PRINT("Changing anon_list from %p to %p\n", anon_list, new_list);
         anon_list = new_list;
-        /* Zero out the new memory */
-        memset(anon_list[anon_list_n], 0, 10);
         anon_list_size += 10;
     }
     /* Otherwise we have space available */
@@ -242,6 +242,7 @@ int allocanon() {
         pthread_mutex_unlock(&anon_list_mutex);
         return -1;
     }
+    DEBUG_PRINT("Setting anon_list[%d] to %p\n", anon_list_n, anon_block);
     anon_list[anon_list_n++] = anon_block;
     pthread_mutex_unlock(&anon_list_mutex);
     return 0;
@@ -252,11 +253,14 @@ int freeanon() {
     DEBUG_PRINT("Freeing an anonymous block\n");
     pthread_mutex_lock(&anon_list_mutex);
     if (anon_list_n <= 0) {
+        pthread_mutex_unlock(&anon_list_mutex);
         DEBUG_PRINT("No anonymouse blocks to free\n");
         return 1;
     }
-    if (munmap(&anon_list[--anon_list_n], ANON_SIZE)) {
+    DEBUG_PRINT("Freeing anon_list[%d] %p\n", anon_list_n - 1, anon_list[anon_list_n - 1]);
+    if (munmap(anon_list[--anon_list_n], ANON_SIZE)) {
         perror("munmap anonymous block");
+        anon_list_n++;
         pthread_mutex_unlock(&anon_list_mutex);
         return -1;
     }
