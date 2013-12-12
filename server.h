@@ -13,5 +13,10 @@ struct http_socket {
     time_t last_access;
     struct list_elem elem;
 };
+
+struct future_elem {
+    struct future* future;
+    struct list_elem elem;
+};
 #endif
 

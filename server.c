@@ -7,14 +7,20 @@
 #include <error.h>
 #include <pthread.h>
 #include <poll.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "server.h"
+#include "events.h"
+#include "threadpool.h"
 #include "debug.h"
 
 #define SA struct sockaddr
 
 #define BACKLOG_QUEUE 50
 #define LISTEN_PORT 9000
+
+#define POOL_THREADS 6
 
 static pthread_mutex_t connections_mutex = PTHREAD_MUTEX_INITIALIZER;
 static struct pollfd* connections;
@@ -23,6 +29,11 @@ static int connections_n = 0;
 static pthread_mutex_t socket_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 static struct list socket_list;
 
+static struct thread_pool* tpool;
+
+static pthread_mutex_t future_mutex = PTHREAD_MUTEX_INITIALIZER;
+static struct list future_list;
+
 int main(int argv, char** argc) {
     int listening_sock;
     struct sockaddr_in clientaddr;
@@ -30,8 +41,11 @@ int main(int argv, char** argc) {
     if ((listening_sock = open_listenfd(LISTEN_PORT)) < 0)
         return -1;
     
-    /* Take care of the socket_list */
+    /* Take care of the lists */
     list_init(&socket_list);
+    list_init(&future_list);
+    /* Thread pool initialization */
+    tpool = thread_pool_new(POOL_THREADS);
 
     /* Setup the pollfd* for poll */
     if ((connections = calloc(1024, sizeof(struct pollfd))) == NULL) {
@@ -55,6 +69,9 @@ int main(int argv, char** argc) {
             return -1;
         }
         DEBUG_PRINT("Got ahold of new connection\n");
+        /* Lets set this connection correctly */
+        int flags = fcntl(connection, F_GETFL, 0);
+        fcntl(connection, F_SETFL, flags | O_NONBLOCK);
         /* Handle our structures first in case there is an intermediate read */
         struct http_socket* new_socket;
         if ((new_socket = calloc(1, sizeof(struct http_socket))) == NULL) {
@@ -118,6 +135,17 @@ void* check_connections(void* data) {
                 DEBUG_PRINT("Ready socket %d, removing from list\n",
                         current_socket->fd);
                 /* TODO: Let other function add it back in when it's ready */
+                struct future_elem* current_future = calloc(1, sizeof(struct future_elem));
+                if (current_future == NULL) {
+                    perror("Allocating future_elem after a poll\n");
+                    exit(EXIT_FAILURE);
+                }
+                current_future->future = thread_pool_submit(tpool, read_conn,
+                        (void*) current_socket);
+                /* Add future to list */
+                pthread_mutex_lock(&future_mutex);
+                list_push_back(&future_list, &current_future->elem);
+                pthread_mutex_unlock(&future_mutex);
                 /* TODO: call appropiate function */
                 ++handled;
             }
