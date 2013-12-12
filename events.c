@@ -368,3 +368,7 @@ void finish_read(struct http_socket* socket){
 	socket->data.pos = 0;
 	watch_write(socket);
 }
+
+void set_path(char* path) {
+    file_path = path;
+}

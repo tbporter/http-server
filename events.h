@@ -6,6 +6,8 @@ void* read_conn(void* data);
 void* write_conn(void* data);
 bool is_buffer_finished(struct buffer);
 
+void set_path(char* path);
+
 void handle_request(struct http_socket*, struct http_request* req);
 void handle_static_request(struct http_socket*, struct http_request* req);
 void handle_dynamic_request(struct http_socket*, struct http_request* req);
