@@ -32,7 +32,7 @@ void* read_conn(void* data){
 
 	if(parse_header(socket->read_buffer, socket->read_buffer_size, &req)){
 		DEBUG_PRINT("HTTP request- method: %s, uri: %s, ver: %s\n", req.method, req.uri, req.ver);
-		//handle_request(socket,&req);
+		handle_request(socket,&req);
 		return NULL;
 	}
 	else{
@@ -61,10 +61,12 @@ void handle_static_request(struct http_socket* socket, struct http_request* req)
 
 	struct stat sbuf;
 
-	strcpy(filename, ".");
+	strcpy(filename, "./files");
 	strcat(filename, req->uri);
 	if (req->uri[strlen(req->uri)-1] == '/') 
 		strcat(filename, "index.html");
+
+	DEBUG_PRINT("filename: %s\n", filename);
 
 	if(!file_exist(filename)){
 		write_error(404);
@@ -89,6 +91,10 @@ void handle_static_request(struct http_socket* socket, struct http_request* req)
 	print_to_buffer(socket, "Content-type: %s\n", filetype);
 	print_to_buffer(socket, "\r\n");
 
+	int i;
+	for(i=0; i < socket->write_buffer_size; i++){
+		DEBUG_PRINT("%c", socket->write_buffer[i]);
+	}
 }
 
 void print_to_buffer(struct http_socket* socket, char* str, ...){
@@ -96,12 +102,11 @@ void print_to_buffer(struct http_socket* socket, char* str, ...){
 	int n;
 
 	do{
-
 		va_start(arg_ptr, str);
-		n = vsnprintf(socket->write_buffer + socket->write_buffer_pos, socket->write_buffer_size, str, arg_ptr);
+		n = vsnprintf(socket->write_buffer + socket->write_buffer_pos, socket->write_buffer_size - socket->write_buffer_pos, str, arg_ptr);
 		va_end(arg_ptr);
 	
-		if(n){
+		if(n > socket->write_buffer_size - socket->write_buffer_pos){
 			socket->write_buffer = realloc(socket->write_buffer, socket->write_buffer_size + OUT_BUF_ALLOC_SIZE);
 			socket->write_buffer_size += OUT_BUF_ALLOC_SIZE;
 		}
@@ -109,7 +114,7 @@ void print_to_buffer(struct http_socket* socket, char* str, ...){
 			socket->write_buffer_pos += strlen(str);
 		}
 	}
-	while(n != 0);
+	while(n > socket->write_buffer_size - socket->write_buffer_pos);
 }
 
 void handle_dynamic_request(struct http_socket* socket, struct http_request* req){
@@ -127,9 +132,9 @@ int file_exist(char* filename){
 }
 
 void write_error(int error){
+	DEBUG_PRINT("Http error: %d\n", error);
 	switch(error){
 		case 501:
-
 		break;
 		case 404:
 		break;
