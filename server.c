@@ -19,7 +19,7 @@
 #define SA struct sockaddr
 
 #define BACKLOG_QUEUE 50
-#define LISTEN_PORT 9000
+#define LISTEN_PORT 10394
 
 #define POOL_THREADS 6
 
@@ -125,9 +125,9 @@ void* check_connections(void* data) {
 int open_listenfd(int port) {
     /* From the textbook */
     int listenfd, optval = 1;
-    struct sockaddr_in serveraddr;
+    struct sockaddr_in6 serveraddr;
     /* Create a socket descriptor */
-    if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    if ((listenfd = socket(AF_INET6, SOCK_STREAM, 0)) < 0) {
         perror("On initial socket opening");
         return -1;
     }
@@ -143,9 +143,9 @@ int open_listenfd(int port) {
     on any IP address for this host */
     /* TODO error crap */
     memset((void *) &serveraddr, 0, sizeof(serveraddr));
-    serveraddr.sin_family = AF_INET;
-    serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serveraddr.sin_port = htons((unsigned short)port);
+    serveraddr.sin6_family = AF_INET6;
+    serveraddr.sin6_addr = in6addr_any;
+    serveraddr.sin6_port = htons((unsigned short)port);
     if (bind(listenfd, (SA *)&serveraddr, sizeof(serveraddr)) < 0) {
         perror("Binding socking");
         return -1;
