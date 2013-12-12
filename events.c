@@ -53,10 +53,11 @@ void* write_conn(void* data){
 	do{
 		count = write(socket->fd,socket->write_buffer + socket->write_buffer_pos, socket->write_buffer_size - socket->write_buffer_pos);
 		socket->write_buffer_pos += count;
-	} while(socket->write_buffer_pos < socket->write_buffer_size && count != 0);
+	} while(socket->write_buffer_pos <= socket->write_buffer_size && count != 0);
 	
-	if(socket->write_buffer_pos < socket->write_buffer_size){
-
+	if(socket->write_buffer_pos <= socket->write_buffer_size){
+		DEBUG_PRINT("FINISHED WRITING YO\n");
+		watch_read(socket);
 	}else{
 		watch_write(socket);
 	}
@@ -130,21 +131,21 @@ void handle_static_request(struct http_socket* socket, struct http_request* req)
 void print_to_buffer(struct http_socket* socket, char* str, ...){
 	va_list arg_ptr;
 	int n;
-
+	int size_left;
 	do{
+		size_left = socket->write_buffer_size - socket->write_buffer_pos;
 		va_start(arg_ptr, str);
-		n = vsnprintf(socket->write_buffer + socket->write_buffer_pos, socket->write_buffer_size - socket->write_buffer_pos, str, arg_ptr);
+		n = vsnprintf(socket->write_buffer + socket->write_buffer_pos, size_left, str, arg_ptr);
 		va_end(arg_ptr);
 	
-		if(n > socket->write_buffer_size - socket->write_buffer_pos){
+		if(n >= size_left){
 			socket->write_buffer = realloc(socket->write_buffer, socket->write_buffer_size + OUT_BUF_ALLOC_SIZE);
 			socket->write_buffer_size += OUT_BUF_ALLOC_SIZE;
-		}
-		else{
-			socket->write_buffer_pos += strlen(str);
+		}else {
+			socket->write_buffer_pos += n;
 		}
 	}
-	while(n > socket->write_buffer_size - socket->write_buffer_pos);
+	while(n >= size_left);
 }
 
 void handle_dynamic_request(struct http_socket* socket, struct http_request* req){
