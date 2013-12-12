@@ -20,7 +20,7 @@
 #define ANON_SIZE 67108864
 
 static pthread_mutex_t anon_list_mutex = PTHREAD_MUTEX_INITIALIZER;
-static void** anon_list;
+static void** anon_list = NULL;
 static int anon_list_n;
 static int anon_list_size;
 
@@ -224,7 +224,7 @@ int allocanon() {
     else if (anon_list_n >= anon_list_size) {
         DEBUG_PRINT("Extending anon_list from %d\n", anon_list_size);
         void* new_list;
-        if ((new_list = realloc(anon_list, anon_list_size + 10)) == NULL) {
+        if ((new_list = realloc(anon_list, sizeof(void*) * (anon_list_size + 10))) == NULL) {
             perror("Error realloc anon_list");
             pthread_mutex_unlock(&anon_list_mutex);
             return -1;
