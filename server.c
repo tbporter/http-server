@@ -19,7 +19,6 @@
 #define SA struct sockaddr
 
 #define BACKLOG_QUEUE 50
-#define LISTEN_PORT 10394
 
 #define POOL_THREADS 6
 
@@ -28,15 +27,27 @@
 #define EPOLL_WRITE EPOLLOUT | EPOLLRDHUP | EPOLLONESHOT
 #define EVENT_QUEUE 8
 
+static int port_n = 10394;
+
 static int epoll_fd;
 
 static struct thread_pool* tpool;
 
-int main(int argv, char** argc) {
+static char* relay_server = NULL;
+
+int main(int argc, char** argv) {
     int listening_sock;
     struct sockaddr_in clientaddr;
+    /* We need this for accept */
+    socklen_t clientlen = sizeof(clientaddr);
+    
+    if (parse_args(argc, argv)) {
+        printf("Couldn't parse arguments\n");
+        return -1;
+    }
+         
     /* Initialize the listening socket */
-    if ((listening_sock = open_listenfd(LISTEN_PORT)) < 0)
+    if ((listening_sock = open_listenfd(port_n)) < 0)
         return -1;
     
     /* Thread pool initialization */
@@ -52,8 +63,14 @@ int main(int argv, char** argc) {
     pthread_t polling;
     pthread_create(&polling, NULL, check_connections, NULL);
 
-    /* We need this for accept */
-    socklen_t clientlen = sizeof(clientaddr);
+    /* If we are connecting to a relay server */
+    if (relay_server) {
+        //if (conn_relay()) {
+        //    printf("Failed to setup relay server, double check your argument\n");
+        //    return -1;
+        //}
+    }
+
     /* Accept a connection */
     while (true) {
         int connection;
@@ -158,6 +175,31 @@ int open_listenfd(int port) {
     }
 
     return listenfd;
+}
+
+int parse_args(int argc, char** argv) {
+    while(true) {
+        char current_opt = getopt(argc, argv, "r:p:R");
+        if (current_opt == 'r') {
+            /* Iterate optind and set relay server */
+            DEBUG_PRINT("Setting relay server to %s\n", argv[optind - 1]);
+            relay_server = argv[optind - 1];
+        }
+        else if (current_opt == 'R') {
+            /* TODO: set path */
+        }
+        else if (current_opt == 'p') {
+            DEBUG_PRINT("Setting port to %s %d\n", argv[optind - 1], optind);
+            port_n = atoi(argv[optind - 1]);
+        }
+        else if (current_opt == -1) {
+            return 0;
+        }
+        else {
+            printf("Unrecognized option -%c\n", current_opt);
+            return -1;
+        }
+    }
 }
 
 int watch_read(struct http_socket* http) {

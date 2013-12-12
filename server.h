@@ -14,6 +14,8 @@ void* check_connections(void* data);
 int watch_read(struct http_socket* http);
 int watch_write(struct http_socket* http);
 int destroy_socket(struct http_socket* http);
+int conn_relay(char* relay_server);
+int parse_args(int, char**);
 
 
 struct buffer {
