@@ -1,1 +1,1 @@
-void read_conn(struct http_socket* socket);
+void* read_conn(void* data);
