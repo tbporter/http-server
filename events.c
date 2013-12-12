@@ -42,16 +42,25 @@ void* read_conn(void* data){
 	}
 	else{
 		DEBUG_PRINT("no http request read\n");
+		watch_read(socket);
 		return NULL;
 	}
+}
+
+void* write_conn(void* data){
+	//struct http_socket* socket = (struct http_socket*) data;
+	return NULL;
 }
 
 void handle_request(struct http_socket* socket, struct http_request* req){
 
     if (!strcasecmp(req->method, "GET")) {
 
-
-		if(strstr(req->uri, "/runloop"))
+    	if(strstr(req->uri, "/loadavg"))
+			DEBUG_PRINT("/roadavg\n");
+		else if(strstr(req->uri, "/meminfo"))
+			DEBUG_PRINT("/meminfo\n");    		
+		else if(strstr(req->uri, "/runloop"))
 			DEBUG_PRINT("/runloop\n");
 		else if(strstr(req->uri, "/allocanon"))
 			DEBUG_PRINT("/allocannon\n");
@@ -71,8 +80,6 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 void handle_static_request(struct http_socket* socket, struct http_request* req){
 	char filename[BUF_SIZE], filetype[BUF_SIZE];
 
-	struct stat sbuf;
-
 	strcpy(filename, "./files");
 	strcat(filename, req->uri);
 	if (req->uri[strlen(req->uri)-1] == '/') 
@@ -84,22 +91,21 @@ void handle_static_request(struct http_socket* socket, struct http_request* req)
 		write_error(404);
 		return;
 	}
-
-	stat(filename, &sbuf);
 	
 	if (strstr(filename, ".html"))
 		strcpy(filetype, "text/html");
-	else if (strstr(filename, ".gif"))
-		strcpy(filetype, "image/gif");
-	else if (strstr(filename, ".jpg"))
-		strcpy(filetype, "image/jpg");
+	else if (strstr(filename, ".js"))
+		strcpy(filetype, "application/javascript");
+	else if (strstr(filename, ".css"))
+		strcpy(filetype, "text/css");
 	else 
 		strcpy(filetype, "text/plain");
 
     
+	file_load(socket,filename);    
 	print_to_buffer(socket, "HTTP/1.1 200 OK\n");
 	print_to_buffer(socket, "Server: Tiny Web Server\n");
-	print_to_buffer(socket, "Content-length: %d\n", (int)sbuf.st_size);
+	print_to_buffer(socket, "Content-length: %d\n", socket->data_buffer_size);
 	print_to_buffer(socket, "Content-type: %s\n", filetype);
 	print_to_buffer(socket, "\r\n");
 

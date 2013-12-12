@@ -3,6 +3,7 @@
 #include "parse.h"
 
 void* read_conn(void* data);
+void* write_conn(void* data);
 void handle_request(struct http_socket*, struct http_request* req);
 void handle_static_request(struct http_socket*, struct http_request* req);
 void handle_dynamic_request(struct http_socket*, struct http_request* req);
