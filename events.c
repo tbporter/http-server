@@ -98,7 +98,9 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 			send_json(socket, 0);
     	}
 		else if(strstr(req->uri, "/meminfo")){
-			DEBUG_PRINT("/meminfo\n");    		
+			DEBUG_PRINT("/meminfo\n");
+			meminfo(&socket->data);
+			send_json(socket,0);    		
 		}
 		else if(strstr(req->uri, "/runloop")){
 			DEBUG_PRINT("/runloop\n");
