@@ -96,8 +96,10 @@ void* check_connections(void* data) {
         DEBUG_PRINT("epoll with %d ready\n", ready);
         int i;
         for (i = 0; i < ready; i++) {
-            if (ready_events[i].events & EPOLLRDHUP & EPOLLERR & EPOLLHUP) {
+            if (ready_events[i].events & EPOLLRDHUP || ready_events[i].events & EPOLLERR || ready_events[i].events & EPOLLHUP) {
                 /* TODO: remove/close fd */
+                DEBUG_PRINT("Found a socket that should die\n");
+                destroy_socket((struct http_socket*) ready_events[i].data.ptr);
             }
             else if (ready_events[i].events & EPOLLIN) {
                 DEBUG_PRINT("Found a read event for %d\n",
