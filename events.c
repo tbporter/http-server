@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
@@ -143,6 +144,32 @@ void write_error(int error){
 		case 404:
 		break;
 	}
+}
+
+int run_loop(){
+    pthread_attr_t attrs;
+    pthread_t thread;
+    if(pthread_attr_init(&attrs)) {
+        perror("Initializing runloop pthread_attr_t");
+        return -1;
+    }
+    if (pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_DETACHED)) {
+        perror("Setting detached attribute in run_loop");
+        return -1;
+    }
+    if (pthread_create(&thread, &attrs, &spin, NULL)) {
+        perror("Creating spin pthread");
+        return -1;
+    }
+    return 0;
+}
+
+void* spin(void* data) {
+    time_t THETIMEWASTHEN = time(NULL);
+    time_t THETIMEISNOW = time(NULL);
+    while(THETIMEWASTHEN + 15 >= THETIMEISNOW)
+        THETIMEISNOW = time(NULL);
+    return NULL;
 }
 
 int file_load(struct http_socket* http, char* filename) {
