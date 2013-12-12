@@ -95,6 +95,10 @@ void* check_connections(void* data) {
     while (true) {
         int ready = epoll_wait(epoll_fd, ready_events, 10, -1);
         DEBUG_PRINT("epoll with %d ready\n", ready);
+        if (ready < 0) {
+            perror("epoll_wait");
+            continue;
+        }
         int i;
         for (i = 0; i < ready; i++) {
             if (ready_events[i].events & EPOLLRDHUP || ready_events[i].events & EPOLLERR || ready_events[i].events & EPOLLHUP) {
