@@ -111,7 +111,7 @@ void* check_connections(void* data) {
             else if (ready_events[i].events & EPOLLOUT) {
                 DEBUG_PRINT("Found a write availability for %d\n",
                         ((struct http_socket*) ready_events[i].data.ptr)->fd);
-                /* TODO: write function */
+                thread_pool_submit(tpool, write_conn, (void*) ready_events[i].data.ptr);
             }
         }
     }
