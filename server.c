@@ -23,7 +23,8 @@
 #define POOL_THREADS 6
 
 /* Properly set reading events */
-#define EPOLL_EVENTS EPOLLIN | EPOLLRDHUP | EPOLLONESHOT
+#define EPOLL_READ EPOLLIN | EPOLLRDHUP | EPOLLONESHOT
+#define EPOLL_WRITE EPOLLOUT | EPOLLRDHUP | EPOLLONESHOT
 #define EVENT_QUEUE 8
 
 static int epoll_fd;
@@ -77,7 +78,7 @@ int main(int argv, char** argc) {
         /* TODO: Set this to current time */
         new_socket->last_access = 0;
         /* TODO: All the error checks */
-        new_socket->event.events = EPOLL_EVENTS;
+        new_socket->event.events = EPOLL_READ;
         new_socket->event.data.ptr = new_socket;
         if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, connection, &new_socket->event) < 0) {
             perror("Adding new connection to epoll");
@@ -150,4 +151,21 @@ int open_listenfd(int port) {
     }
 
     return listenfd;
+}
+
+int watch_read(struct http_socket* http) {
+    http->event.events = EPOLL_READ;
+    return epoll_ctl(epoll_fd, EPOLL_CTL_MOD, http->fd, &http->event);
+}
+int watch_write(struct http_socket* http) {
+    http->event.events = EPOLL_WRITE;
+    return epoll_ctl(epoll_fd, EPOLL_CTL_MOD, http->fd, &http->event);
+}
+int destroy_socket(struct http_socket* http){
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, http->fd, &http->event)) {
+        perror("Destroying socket\n");
+        return -1;
+    }
+    free(http);
+    return 0;
 }
