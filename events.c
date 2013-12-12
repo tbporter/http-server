@@ -28,7 +28,7 @@ void* read_conn(void* data){
 	struct http_request req = {m, u, v};
 
 	if(parse_header(socket->read_buffer, socket->read_buffer_size, &req)){
-		DEBUG_PRINT("HTTP request- message: %s, uri: %s, ver: %s", req->message, req->uri, req->ver);
+		DEBUG_PRINT("HTTP request- method: %s, uri: %s, ver: %s", req.method, req.uri, req.ver);
 		return NULL;
 	}
 	else{
