@@ -186,6 +186,7 @@ void* spin(void* data) {
 }
 
 int file_load(struct http_socket* http, char* filename) {
+    DEBUG_PRINT("Loading %s\n", filename);
     int fd;
     struct stat stat_block;
     fd = open(filename, O_RDONLY);
@@ -193,7 +194,8 @@ int file_load(struct http_socket* http, char* filename) {
         perror("Opening file for mmaping");
         return -1;
     }
-    if (fstat(fd, &stat_block) != 1) {
+    DEBUG_PRINT("Opened as fd:%d\n", fd);
+    if (fstat(fd, &stat_block) != 0) {
         perror("Statting file for mmaping");
         close(fd);
         return -1;
