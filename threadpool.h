@@ -18,6 +18,7 @@ struct future * thread_pool_submit(
 /* Make sure that thread pool has completed executing this callable,
  * then return result. */
 void * future_get(struct future *);
+void* future_get_no_block(struct future* f);
 
 /* Deallocate this future.  Must be called after future_get() */
 void future_free(struct future *);

@@ -213,3 +213,15 @@ void* future_get(struct future* f){
 
     return f->result;
 }
+
+void* future_get_no_block(struct future* f){
+    int ret = sem_try_wait(&(f->sem));
+    
+    if (ret == -1) {
+        perror("Error waiting on future semaphore\n");
+    }
+    else if(ret>0){
+        return f->result;
+    }
+    return NULL;
+}
