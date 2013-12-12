@@ -165,13 +165,7 @@ int file_load(struct http_socket* http, char* filename) {
         return -1;
     }
     http->mmaped = true;
-    http->write_buffer = mapped_file;
-    http->write_buffer_size = stat_block.st_size;
+    http->data_buffer = mapped_file;
+    http->data_buffer_size = stat_block.st_size;
     return 0;
 }
-
-
-
-
-
-
