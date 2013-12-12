@@ -4,15 +4,14 @@
 #include <stdbool.h>
 void* read_conn(void* data);
 void* write_conn(void* data);
-bool is_write_buffer_finished(struct http_socket*);
-bool is_data_buffer_finished(struct http_socket*);
+bool is_buffer_finished(struct buffer);
 
 void handle_request(struct http_socket*, struct http_request* req);
 void handle_static_request(struct http_socket*, struct http_request* req);
 void handle_dynamic_request(struct http_socket*, struct http_request* req);
 void print_to_buffer(struct http_socket* socket, char* str, ...);
 int file_exist(char* filename);
-void write_error(int error);
+void write_error(struct http_socket*,int error);
 
 /* Run a loop for 15 seconds */
 int allocanon(void);

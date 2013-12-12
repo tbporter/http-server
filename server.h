@@ -15,21 +15,24 @@ int watch_read(struct http_socket* http);
 int watch_write(struct http_socket* http);
 int destroy_socket(struct http_socket* http);
 
+
+struct buffer {
+    char* data;
+    int size;
+    int pos;
+    int last;
+};
+
 struct http_socket {
     int fd;
     /*struct pollfd* poll_fd;*/
     struct epoll_event event;
     char* read_buffer;
     int read_buffer_size;
-    char* write_buffer;
-    int write_buffer_size;
-    int write_buffer_pos;
-    int write_buffer_last;
-    /* mmaped is true if the write_buffer was mmaped not malloced */
+
+    struct buffer write;
+    struct buffer data;
     bool mmaped;
-    char* data_buffer;
-    int data_buffer_size;
-    int data_buffer_pos;
     time_t last_access;
     struct list_elem elem;
 };

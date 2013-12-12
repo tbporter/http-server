@@ -174,16 +174,16 @@ int destroy_socket(struct http_socket* http){
     }
     if (http->read_buffer)
         free(http->read_buffer);
-    if (http->write_buffer)
-        free(http->write_buffer);
-    if (http->data_buffer) {
+    if (http->write.data)
+        free(http->write.data);
+    if (http->data.data) {
         if (http->mmaped) {
-            if (munmap(http->data_buffer, http->data_buffer_size)) {
+            if (munmap(http->data.data, http->data.size)) {
                 perror("munmap data buffer in destroy socket");
             }
         }
         else {
-            free(http->data_buffer);
+            free(http->data.data);
         }
     }
     free(http);

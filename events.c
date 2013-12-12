@@ -58,24 +58,20 @@ void* read_conn(void* data){
 void* write_conn(void* data){
 	struct http_socket* socket = (struct http_socket*) data;
 	int count = 0;
-
-
 	do{
 		
-		if(!is_write_buffer_finished(socket)){
-			count = write(socket->fd,socket->write_buffer + socket->write_buffer_pos, socket->write_buffer_last - socket->write_buffer_pos);
-			socket->write_buffer_pos += count;
+		if(!is_buffer_finished(socket->write)){
+			count = write(socket->fd,socket->write.data + socket->write.pos, socket->write.last - socket->write.pos);
+			socket->write.pos += count;
 		}
-
-
-		if(is_write_buffer_finished(socket) && !is_data_buffer_finished(socket)){
-			count = write(socket->fd,socket->data_buffer + socket->data_buffer_pos, socket->data_buffer_size - socket->data_buffer_pos);
-			socket->data_buffer_pos += count;
+		if(is_buffer_finished(socket->write) && !is_buffer_finished(socket->data)){
+			count = write(socket->fd,socket->data.data + socket->data.pos, socket->data.size - socket->data.pos);
+			socket->data.pos += count;
 		}
-
-	} while(!is_write_buffer_finished(socket) && !is_data_buffer_finished(socket) && count != 0);
+		DEBUG_PRINT("NOT FINISHED");
+	} while(!is_buffer_finished(socket->write) && !is_buffer_finished(socket->data) && count != 0);
 	
-	if(is_write_buffer_finished(socket) && is_data_buffer_finished(socket)){
+	if(is_buffer_finished(socket->write) && is_buffer_finished(socket->data)){
 		DEBUG_PRINT("FINISHED WRITING YO\n");
 		watch_read(socket);
 	}else{
@@ -83,12 +79,10 @@ void* write_conn(void* data){
 	}
 	return NULL;
 }
-bool is_write_buffer_finished(struct http_socket* s){
-	return s->write_buffer_pos >= s->write_buffer_last; 
-}
 
-bool is_data_buffer_finished(struct http_socket* s){
-	return s->data_buffer_pos >= s->data_buffer_size; 
+bool is_buffer_finished(struct buffer b){
+	DEBUG_PRINT("LAST: %d", b.last);
+	return b.pos >= b.last; 
 }
 
 void handle_request(struct http_socket* socket, struct http_request* req){
@@ -104,24 +98,35 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 		else if(strstr(req->uri, "/runloop")){
 			DEBUG_PRINT("/runloop\n");
 			run_loop();
+			print_to_buffer(socket, "Started loop");
 		}
 		else if(strstr(req->uri, "/allocanon")){
 			DEBUG_PRINT("/allocannon\n");
-			allocanon();
+			if(allocanon() == 0)
+				print_to_buffer(socket, "allocanon success");
+			else
+				print_to_buffer(socket, "allocanon didn't work");
+
 		}
 		else if(strstr(req->uri, "/freeanon")){
 			DEBUG_PRINT("/freeanon\n");
-			freeanon();
+			if(freeanon() == 0)
+				print_to_buffer(socket, "freeanon success");
+			else
+				print_to_buffer(socket, "freeanon didn't free any blocks");
 		}
-		else if (!strstr(req->uri, "cgi-bin"))
+		else if (!strstr(req->uri, "cgi-bin")){
 			handle_static_request(socket, req);
+			return; //Return here
+		}
 		else
 			handle_dynamic_request(socket, req);
 
     }
     else
-    	write_error(501);
+    	write_error(socket,501);
 
+	finish_read(socket);
 }
 
 void handle_static_request(struct http_socket* socket, struct http_request* req){
@@ -135,7 +140,7 @@ void handle_static_request(struct http_socket* socket, struct http_request* req)
 	DEBUG_PRINT("filename: %s\n", filename);
 
 	if(!file_exist(filename)){
-		write_error(404);
+		write_error(socket,404);
 		return;
 	}
 	
@@ -152,13 +157,13 @@ void handle_static_request(struct http_socket* socket, struct http_request* req)
 	file_load(socket,filename);    
 	print_to_buffer(socket, "HTTP/1.1 200 OK\n");
 	print_to_buffer(socket, "Server: Best Server\n");
-	print_to_buffer(socket, "Content-length: %d\n", socket->data_buffer_size);
+	print_to_buffer(socket, "Content-length: %d\n", socket->data.size);
 	print_to_buffer(socket, "Content-type: %s\n", filetype);
 	print_to_buffer(socket, "\r\n");
 
 	int i;
-	for(i=0; i < socket->write_buffer_size; i++){
-		DEBUG_PRINT("%c", socket->write_buffer[i]);
+	for(i=0; i < socket->write.size; i++){
+		DEBUG_PRINT("%c", socket->write.data[i]);
 	}
 	finish_read(socket);
 }
@@ -168,20 +173,21 @@ void print_to_buffer(struct http_socket* socket, char* str, ...){
 	int n;
 	int size_left;
 	do{
-		size_left = socket->write_buffer_size - socket->write_buffer_pos;
+		size_left = socket->write.size - socket->write.pos;
 		va_start(arg_ptr, str);
-		n = vsnprintf(socket->write_buffer + socket->write_buffer_pos, size_left, str, arg_ptr);
+		n = vsnprintf(socket->write.data + socket->write.pos, size_left, str, arg_ptr);
 		va_end(arg_ptr);
 	
 		if(n >= size_left){
-			socket->write_buffer = realloc(socket->write_buffer, socket->write_buffer_size + OUT_BUF_ALLOC_SIZE);
-			socket->write_buffer_size += OUT_BUF_ALLOC_SIZE;
+			socket->write.data = realloc(socket->write.data, socket->write.size + OUT_BUF_ALLOC_SIZE);
+			socket->write.size += OUT_BUF_ALLOC_SIZE;
 		}else {
-			socket->write_buffer_pos += n;
+			socket->write.pos += n;
 		}
 	}
 	while(n >= size_left);
 }
+
 
 void handle_dynamic_request(struct http_socket* socket, struct http_request* req){
 	//char cgi_args[BUF_SIZE], filename[BUF_SIZE];
@@ -197,14 +203,9 @@ int file_exist(char* filename){
     return 1;
 }
 
-void write_error(int error){
+void write_error(struct http_socket* s,int error){
 	DEBUG_PRINT("Http error: %d\n", error);
-	switch(error){
-		case 501:
-		break;
-		case 404:
-		break;
-	}
+	print_to_buffer(s,"HTTP Error %d\n", error);
 }
 
 int allocanon() {
@@ -316,15 +317,16 @@ int file_load(struct http_socket* http, char* filename) {
         return -1;
     }
     http->mmaped = true;
-    http->data_buffer = mapped_file;
-    http->data_buffer_size = stat_block.st_size;
+    http->data.data = mapped_file;
+    http->data.size = stat_block.st_size;
+    http->data.pos = http->data.size;
     return 0;
 }
 
 void finish_read(struct http_socket* socket){
-	socket->write_buffer_last = socket->write_buffer_pos;
-	DEBUG_PRINT("write_buffer_last: %d\n", socket->write_buffer_last);
-	socket->write_buffer_pos = 0;
-	socket->data_buffer_pos = 0;
+	socket->write.last = socket->write.pos;
+	socket->data.last = socket->data.pos;
+	socket->write.pos = 0;
+	socket->data.pos = 0;
 	watch_write(socket);
 }
