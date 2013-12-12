@@ -15,6 +15,8 @@ int file_exist(char* filename);
 void write_error(int error);
 
 /* Run a loop for 15 seconds */
+int allocanon(void);
+int freeanon(void);
 int run_loop(void);
 void* spin(void* data);
 int file_load(struct http_socket* http, char* filename);

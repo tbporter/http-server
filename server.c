@@ -7,6 +7,7 @@
 #include <error.h>
 #include <pthread.h>
 #include <sys/epoll.h>
+#include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -164,9 +165,26 @@ int watch_write(struct http_socket* http) {
     return epoll_ctl(epoll_fd, EPOLL_CTL_MOD, http->fd, &http->event);
 }
 int destroy_socket(struct http_socket* http){
+    DEBUG_PRINT("Deallocating socket\n");
     if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, http->fd, &http->event)) {
-        perror("Destroying socket\n");
-        return -1;
+        perror("Deleting socket from epoll");
+    }
+    if (close(http->fd)) {
+        perror("Failed to close http_socket fd -- note this may be valid");
+    }
+    if (http->read_buffer)
+        free(http->read_buffer);
+    if (http->write_buffer)
+        free(http->write_buffer);
+    if (http->data_buffer) {
+        if (http->mmaped) {
+            if (munmap(http->data_buffer, http->data_buffer_size)) {
+                perror("munmap data buffer in destroy socket");
+            }
+        }
+        else {
+            free(http->data_buffer);
+        }
     }
     free(http);
     return 0;
