@@ -81,7 +81,7 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 void handle_static_request(struct http_socket* socket, struct http_request* req){
 	char filename[BUF_SIZE], filetype[BUF_SIZE];
 
-	strcpy(filename, "");
+	strcpy(filename, ".");
 	strcat(filename, req->uri);
 	if (req->uri[strlen(req->uri)-1] == '/') 
 		strcat(filename, "files/index.html");
