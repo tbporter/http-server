@@ -93,6 +93,7 @@ static void* thread_run(void* tpool) {
             future->result = future->execution(future->argument);
             fprintf(stderr, "Completed execution\n");
             sem_post(&(future->sem));
+            free(future);
             /* We've finished there might be more in the queue */
             if (pthread_mutex_lock(&pool->lock) == -1) {
                 perror("Error locking thread pool mutex in worker thread\n");
@@ -114,12 +115,11 @@ static void* thread_run(void* tpool) {
 }
 
 
-struct future * thread_pool_submit(struct thread_pool * pool,
+void thread_pool_submit(struct thread_pool * pool,
         thread_pool_callable_func_t callable, void* callable_data) {
     struct future* fut;
     if ((long) (fut = malloc(sizeof(struct future))) == -1) {
         perror("Error locking thread pool mutex in thread pool submit\n");
-        return NULL;
     }
     /* Set the memory values */
     fut->execution = callable;
@@ -127,24 +127,19 @@ struct future * thread_pool_submit(struct thread_pool * pool,
     /* Initialize the semaphore */
     if (sem_init(&fut->sem, 0, 0) == -1) {
         perror("Error initializing semaphore for future\n");
-        return NULL;
     }
     /* Throw it into the work queue */
     if (pthread_mutex_lock(&pool->lock) == -1) {
         perror("Error locking thread pool mutex in thread pool submit\n");
-        return NULL;
     }
     list_push_back(&pool->work_queue, &fut->elem);
     /* Let a thread know there is work if one is waiting */
     if (pthread_cond_signal(&pool->condition) == -1) {
         perror("Error while signalling other threads of new job\n");
-        return NULL;
     }
     if (pthread_mutex_unlock(&pool->lock) == -1) {
         perror("Error locking thread pool mutex in thread pool submit\n");
-        return NULL;
     }
-    return fut;
 }
 
 void thread_pool_shutdown(struct thread_pool* pool) {
@@ -194,34 +189,4 @@ void thread_pool_shutdown(struct thread_pool* pool) {
         return;
     }
     free(pool);
-}
-
-void future_free(struct future* f){
-    if (sem_destroy(&f->sem) == -1) {
-        perror("Error destroying future semaphore\n");
-        return;
-    }
-    free(f);
-}
-
-void* future_get(struct future* f){
-    /* Wait until the future is done */
-    if (sem_wait(&(f->sem)) == -1) {
-        perror("Error waiting on future semaphore\n");
-        return NULL;
-    }
-
-    return f->result;
-}
-
-void* future_get_no_block(struct future* f){
-    int ret = sem_trywait(&(f->sem));
-    
-    if (ret == -1) {
-        perror("Error waiting on future semaphore\n");
-    }
-    else if(ret>0){
-        return f->result;
-    }
-    return NULL;
 }
