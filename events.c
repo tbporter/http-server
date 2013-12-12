@@ -4,7 +4,7 @@
 #include "server.h"
 #include "parse.h"
 #include "events.h"
-
+#include "debug.h"
 #define BUF_SIZE 256
 
 void* read_conn(void* data){
@@ -19,6 +19,7 @@ void* read_conn(void* data){
 			socket->read_buffer = realloc(socket->read_buffer, socket->read_buffer_size + count); //TODO: make sure realloc works
 			memcpy(socket->read_buffer + socket->read_buffer_size, temp_buffer, count);
 			socket->read_buffer_size += count;
+			DEBUG_PRINT("Read in %d bytes to buffer", count);
 		}
 	}while(count);
 
@@ -27,9 +28,11 @@ void* read_conn(void* data){
 	struct http_request req = {m, u, v};
 
 	if(parse_header(socket->read_buffer, socket->read_buffer_size, &req)){
+		DEBUG_PRINT("HTTP request- message: %s, uri: %s, ver: %s", req->message, req->uri, req->ver);
 		return NULL;
 	}
 	else{
+		DEBUG_PRINT("no http request read");
 		return NULL;
 	}
 }
