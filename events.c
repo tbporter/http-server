@@ -62,7 +62,7 @@ void* write_conn(void* data){
 	do{
 		
 		if(!is_write_buffer_finished(socket)){
-			count = write(socket->fd,socket->write_buffer + socket->write_buffer_pos, socket->write_buffer_size - socket->write_buffer_pos);
+			count = write(socket->fd,socket->write_buffer + socket->write_buffer_pos, socket->write_buffer_last - socket->write_buffer_pos);
 			socket->write_buffer_pos += count;
 		}
 
@@ -83,7 +83,7 @@ void* write_conn(void* data){
 	return NULL;
 }
 bool is_write_buffer_finished(struct http_socket* s){
-	return s->write_buffer_pos >= s->write_buffer_size; 
+	return s->write_buffer_pos >= s->write_buffer_last; 
 }
 
 bool is_data_buffer_finished(struct http_socket* s){
@@ -303,6 +303,8 @@ int file_load(struct http_socket* http, char* filename) {
 }
 
 void finish_read(struct http_socket* socket){
+	socket->write_buffer_last = socket->write_buffer_pos;
+	DEBUG_PRINT("write_buffer_last: %d\n", socket->write_buffer_last);
 	socket->write_buffer_pos = 0;
 	socket->data_buffer_pos = 0;
 	watch_write(socket);
