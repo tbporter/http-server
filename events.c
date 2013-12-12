@@ -73,6 +73,7 @@ void* write_conn(void* data){
 	
 	if(is_buffer_finished(socket->write) && is_buffer_finished(socket->data)){
 		DEBUG_PRINT("FINISHED WRITING YO\n");
+		DEBUG_PRINT("size: %d\n", socket->data.size);
 		watch_read(socket);
 	}else{
 		watch_write(socket);
@@ -81,7 +82,6 @@ void* write_conn(void* data){
 }
 
 bool is_buffer_finished(struct buffer b){
-	DEBUG_PRINT("LAST: %d", b.last);
 	return b.pos >= b.last; 
 }
 
@@ -98,22 +98,22 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 		else if(strstr(req->uri, "/runloop")){
 			DEBUG_PRINT("/runloop\n");
 			run_loop();
-			print_to_buffer(socket, "Started loop");
+			print_to_buffer(&socket->data, "Started loop");
 		}
 		else if(strstr(req->uri, "/allocanon")){
 			DEBUG_PRINT("/allocannon\n");
 			if(allocanon() == 0)
-				print_to_buffer(socket, "allocanon success");
+				print_to_buffer(&socket->data, "allocanon success");
 			else
-				print_to_buffer(socket, "allocanon didn't work");
+				print_to_buffer(&socket->data, "allocanon didn't work");
 
 		}
 		else if(strstr(req->uri, "/freeanon")){
 			DEBUG_PRINT("/freeanon\n");
 			if(freeanon() == 0)
-				print_to_buffer(socket, "freeanon success");
+				print_to_buffer(&socket->data, "freeanon success");
 			else
-				print_to_buffer(socket, "freeanon didn't free any blocks");
+				print_to_buffer(&socket->data, "freeanon didn't free any blocks");
 		}
 		else if (!strstr(req->uri, "cgi-bin")){
 			handle_static_request(socket, req);
@@ -126,6 +126,7 @@ void handle_request(struct http_socket* socket, struct http_request* req){
     else
     	write_error(socket,501);
 
+	send_plain_text(socket);
 	finish_read(socket);
 }
 
@@ -155,39 +156,47 @@ void handle_static_request(struct http_socket* socket, struct http_request* req)
 
     
 	file_load(socket,filename);    
-	print_to_buffer(socket, "HTTP/1.1 200 OK\n");
-	print_to_buffer(socket, "Server: Best Server\n");
-	print_to_buffer(socket, "Content-length: %d\n", socket->data.size);
-	print_to_buffer(socket, "Content-type: %s\n", filetype);
-	print_to_buffer(socket, "\r\n");
+	print_to_buffer(&socket->write, "HTTP/1.1 200 OK\n");
+	print_to_buffer(&socket->write, "Server: Best Server\n");
+	print_to_buffer(&socket->write, "Content-length: %d\n", socket->data.size);
+	print_to_buffer(&socket->write, "Content-type: %s\n", filetype);
+	print_to_buffer(&socket->write, "\r\n");
 
 	int i;
-	for(i=0; i < socket->write.size; i++){
+	for(i=0; i < socket->write.pos; i++){
 		DEBUG_PRINT("%c", socket->write.data[i]);
 	}
+
 	finish_read(socket);
 }
 
-void print_to_buffer(struct http_socket* socket, char* str, ...){
+void print_to_buffer(struct buffer* b, char* str, ...){
 	va_list arg_ptr;
 	int n;
 	int size_left;
 	do{
-		size_left = socket->write.size - socket->write.pos;
+		size_left = b->size - b->pos;
 		va_start(arg_ptr, str);
-		n = vsnprintf(socket->write.data + socket->write.pos, size_left, str, arg_ptr);
+		n = vsnprintf(b->data + b->pos, size_left, str, arg_ptr);
 		va_end(arg_ptr);
 	
 		if(n >= size_left){
-			socket->write.data = realloc(socket->write.data, socket->write.size + OUT_BUF_ALLOC_SIZE);
-			socket->write.size += OUT_BUF_ALLOC_SIZE;
+			b->data = realloc(b->data, b->size + OUT_BUF_ALLOC_SIZE);
+			b->size += OUT_BUF_ALLOC_SIZE;
 		}else {
-			socket->write.pos += n;
+			b->pos += n;
 		}
 	}
 	while(n >= size_left);
 }
 
+void send_plain_text(struct http_socket* s){
+	print_to_buffer(&s->write, "HTTP/1.1 200 OK\n");
+	print_to_buffer(&s->write, "Server: Best Server\n");
+	print_to_buffer(&s->write, "Content-length: %d\n", s->data.pos);
+	print_to_buffer(&s->write, "Content-type: text/plain\n");
+	print_to_buffer(&s->write, "\r\n");
+}
 
 void handle_dynamic_request(struct http_socket* socket, struct http_request* req){
 	//char cgi_args[BUF_SIZE], filename[BUF_SIZE];
@@ -205,7 +214,7 @@ int file_exist(char* filename){
 
 void write_error(struct http_socket* s,int error){
 	DEBUG_PRINT("Http error: %d\n", error);
-	print_to_buffer(s,"HTTP Error %d\n", error);
+	print_to_buffer(&s->data,"HTTP Error %d\n", error);
 }
 
 int allocanon() {

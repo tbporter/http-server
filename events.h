@@ -9,10 +9,11 @@ bool is_buffer_finished(struct buffer);
 void handle_request(struct http_socket*, struct http_request* req);
 void handle_static_request(struct http_socket*, struct http_request* req);
 void handle_dynamic_request(struct http_socket*, struct http_request* req);
-void print_to_buffer(struct http_socket* socket, char* str, ...);
+void print_to_buffer(struct buffer*, char* str, ...);
 int file_exist(char* filename);
 void write_error(struct http_socket*,int error);
 
+void send_plain_text(struct http_socket*);
 /* Run a loop for 15 seconds */
 int allocanon(void);
 /* Returns 1 if none are available to munmap, 0 on success and -1 on error */
