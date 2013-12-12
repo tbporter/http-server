@@ -26,6 +26,9 @@ struct http_socket {
     int write_buffer_pos;
     /* mmaped is true if the write_buffer was mmaped not malloced */
     bool mmaped;
+    char* data_buffer;
+    int data_buffer_size;
+    int data_buffer_pos;
     time_t last_access;
     struct list_elem elem;
 };
