@@ -15,7 +15,7 @@
 #include "debug.h"
 
 #define BUF_SIZE 256
-#define OUT_BUF_ALLOC_SIZE 1024
+#define OUT_BUF_ALLOC_SIZE 512
 
 #define ANON_SIZE 67108864
 
@@ -95,16 +95,24 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 
     if (!strcasecmp(req->method, "GET")) {
 
-    	if(strstr(req->uri, "/loadavg"))
+    	if(strstr(req->uri, "/loadavg")){
 			DEBUG_PRINT("/roadavg\n");
-		else if(strstr(req->uri, "/meminfo"))
+    	}
+		else if(strstr(req->uri, "/meminfo")){
 			DEBUG_PRINT("/meminfo\n");    		
-		else if(strstr(req->uri, "/runloop"))
+		}
+		else if(strstr(req->uri, "/runloop")){
 			DEBUG_PRINT("/runloop\n");
-		else if(strstr(req->uri, "/allocanon"))
+			run_loop();
+		}
+		else if(strstr(req->uri, "/allocanon")){
 			DEBUG_PRINT("/allocannon\n");
-		else if(strstr(req->uri, "/freeanon"))
+			allocanon();
+		}
+		else if(strstr(req->uri, "/freeanon")){
 			DEBUG_PRINT("/freeanon\n");
+			freeanon();
+		}
 		else if (!strstr(req->uri, "cgi-bin"))
 			handle_static_request(socket, req);
 		else
