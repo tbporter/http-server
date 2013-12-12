@@ -16,6 +16,13 @@
 #define BUF_SIZE 256
 #define OUT_BUF_ALLOC_SIZE 1024
 
+#define ANON_SIZE 67108864
+
+static pthread_mutex_t anon_list_mutex = PTHREAD_MUTEX_INITIALIZER;
+static void** anon_list;
+static int anon_list_n;
+static int anon_list_size;
+
 void* read_conn(void* data){
 	
 	struct http_socket* socket = (struct http_socket*) data;
@@ -158,6 +165,57 @@ void write_error(int error){
 		case 404:
 		break;
 	}
+}
+
+int allocanon() {
+    void* anon_block;
+    pthread_mutex_lock(&anon_list_mutex);
+    /* Handle initialization case */
+    if (anon_list == NULL) {
+        if (calloc(10, sizeof(void*))) {
+            perror("Error allocating anon_list");
+            pthread_mutex_unlock(&anon_list_mutex);
+            return -1;
+        }
+        anon_list_n = 0;
+        anon_list_size = 10;
+    }
+    /* anon_list_n will be anon_list_size + 1 when a expansion is needed */
+    else if (anon_list_n > anon_list_size) {
+        void* new_list;
+        if ((new_list = realloc(anon_list, anon_list_size + 10)) == NULL) {
+            perror("Error realloc anon_list");
+            pthread_mutex_unlock(&anon_list_mutex);
+            return -1;
+        }
+        anon_list = new_list;
+        /* Zero out the new memory */
+        memset(anon_list[anon_list_n], 0, 10);
+        anon_list_size += 10;
+    }
+    /* Otherwise we have space available */
+
+    /* Now generic wagon horse code */
+    anon_block = mmap(NULL, ANON_SIZE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (anon_block == MAP_FAILED) {
+        perror("Allocating anonymous block");
+        pthread_mutex_unlock(&anon_list_mutex);
+        return -1;
+    }
+    anon_list[anon_list_n++] = anon_block;
+    pthread_mutex_unlock(&anon_list_mutex);
+    return 0;
+}
+
+int freeanon() {
+    pthread_mutex_lock(&anon_list_mutex);
+    if (munmap(&anon_list[--anon_list_n], ANON_SIZE)) {
+        perror("munmap anonymous block");
+        pthread_mutex_unlock(&anon_list_mutex);
+        return -1;
+    }
+    pthread_mutex_unlock(&anon_list_mutex);
+    return 0;
 }
 
 int run_loop(){
