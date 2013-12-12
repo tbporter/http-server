@@ -247,8 +247,14 @@ int allocanon() {
     return 0;
 }
 
+/* Returns 1 if none are available to munmap, 0 on success and -1 on error */
 int freeanon() {
+    DEBUG_PRINT("Freeing an anonymous block\n");
     pthread_mutex_lock(&anon_list_mutex);
+    if (anon_list_n <= 0) {
+        DEBUG_PRINT("No anonymouse blocks to free\n");
+        return 1;
+    }
     if (munmap(&anon_list[--anon_list_n], ANON_SIZE)) {
         perror("munmap anonymous block");
         pthread_mutex_unlock(&anon_list_mutex);

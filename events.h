@@ -16,6 +16,7 @@ void write_error(int error);
 
 /* Run a loop for 15 seconds */
 int allocanon(void);
+/* Returns 1 if none are available to munmap, 0 on success and -1 on error */
 int freeanon(void);
 int run_loop(void);
 void* spin(void* data);
