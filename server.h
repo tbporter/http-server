@@ -4,8 +4,13 @@
 #include <sys/epoll.h>
 #include "list.h"
 #include "threadpool.h"
+struct http_socket;
+
 int open_listenfd(int port);
 void* check_connections(void* data);
+int watch_read(struct http_socket* http);
+int watch_write(struct http_socket* http);
+int destroy_socket(struct http_socket* http);
 
 struct http_socket {
     int fd;
