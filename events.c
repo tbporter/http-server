@@ -13,6 +13,7 @@
 #include "parse.h"
 #include "events.h"
 #include "debug.h"
+#include "json.h"
 
 #define BUF_SIZE 256
 #define OUT_BUF_ALLOC_SIZE 512
@@ -23,6 +24,8 @@ static pthread_mutex_t anon_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 static void** anon_list = NULL;
 static int anon_list_n;
 static int anon_list_size;
+
+static char* file_path;
 
 void* read_conn(void* data){
 	
@@ -91,6 +94,8 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 
     	if(strstr(req->uri, "/loadavg")){
 			DEBUG_PRINT("/roadavg\n");
+			loadavg(&socket->data);
+			send_json(socket, 0);
     	}
 		else if(strstr(req->uri, "/meminfo")){
 			DEBUG_PRINT("/meminfo\n");    		
@@ -99,6 +104,7 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 			DEBUG_PRINT("/runloop\n");
 			run_loop();
 			print_to_buffer(&socket->data, "Started loop");
+			send_plain_text(socket,0);
 		}
 		else if(strstr(req->uri, "/allocanon")){
 			DEBUG_PRINT("/allocannon\n");
@@ -107,6 +113,8 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 			else
 				print_to_buffer(&socket->data, "allocanon didn't work");
 
+			send_plain_text(socket,0);
+
 		}
 		else if(strstr(req->uri, "/freeanon")){
 			DEBUG_PRINT("/freeanon\n");
@@ -114,10 +122,11 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 				print_to_buffer(&socket->data, "freeanon success");
 			else
 				print_to_buffer(&socket->data, "freeanon didn't free any blocks");
+
+			send_plain_text(socket,0);
 		}
 		else if (!strstr(req->uri, "cgi-bin")){
 			handle_static_request(socket, req);
-			return; //Return here
 		}
 		else
 			handle_dynamic_request(socket, req);
@@ -127,14 +136,12 @@ void handle_request(struct http_socket* socket, struct http_request* req){
     	write_error(socket,501);
     	return;
     }
-
-	send_plain_text(socket,0);
 }
 
 void handle_static_request(struct http_socket* socket, struct http_request* req){
 	char filename[BUF_SIZE], filetype[BUF_SIZE];
 
-	strcpy(filename, ".");
+	strcpy(filename, file_path);
 	strcat(filename, req->uri);
 	if (req->uri[strlen(req->uri)-1] == '/') 
 		strcat(filename, "files/index.html");
@@ -199,6 +206,18 @@ void send_plain_text(struct http_socket* s, int err){
 	print_to_buffer(&s->write, "Server: Best Server\n");
 	print_to_buffer(&s->write, "Content-length: %d\n", s->data.pos);
 	print_to_buffer(&s->write, "Content-type: text/plain\n");
+	print_to_buffer(&s->write, "\r\n");
+	finish_read(s);
+}
+
+void send_json(struct http_socket* s, int err){
+	if(err)
+		print_to_buffer(&s->write, "HTTP/1.1 %d\n", err);
+	else
+		print_to_buffer(&s->write, "HTTP/1.1 200 OK\n");
+	print_to_buffer(&s->write, "Server: Best Server\n");
+	print_to_buffer(&s->write, "Content-length: %d\n", s->data.pos);
+	print_to_buffer(&s->write, "Content-type: application/json\n");
 	print_to_buffer(&s->write, "\r\n");
 	finish_read(s);
 }

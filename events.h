@@ -14,6 +14,7 @@ int file_exist(char* filename);
 void write_error(struct http_socket*,int error);
 
 void send_plain_text(struct http_socket*, int error);
+void send_json(struct http_socket* s, int err);
 /* Run a loop for 15 seconds */
 int allocanon(void);
 /* Returns 1 if none are available to munmap, 0 on success and -1 on error */
@@ -23,6 +24,5 @@ void* spin(void* data);
 /* Return 1 for DNE, 2 for permission denied */
 int file_load(struct http_socket* http, char* filename);
 void finish_read(struct http_socket* socket);
-
 
 #endif

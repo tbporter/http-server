@@ -1,5 +1,8 @@
 #ifndef _JSON_H
 #define _JSON_H
+
+#include "server.h"
+#include <sys/types.h>
 typedef struct {
     float wait1;
     float wait5;
