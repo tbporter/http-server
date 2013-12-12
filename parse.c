@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "parse.h"
-
+#include "debug.h"
 #define BUF_LEN 1024
 
 int parse_is_header_finished(char* buf, int buf_len){
@@ -24,8 +24,10 @@ int parse_header(char* buf, int buf_len, struct http_request* req){
 
 
 	str_s_len = parse_string(str_s, buf_len);
-	if(str_s_len<0)
+	if(str_s_len<0){
+		DEBUG_PRINT("no string!\n");
 		return 0; //TODO: error!
+	}
 
 	strncpy(tmp, str_s, str_s_len);
 	sscanf(tmp, "%s %s %s\n", req->method, req->uri, req->ver);
@@ -35,7 +37,7 @@ int parse_header(char* buf, int buf_len, struct http_request* req){
 int parse_string(char* start, int buf_len){
 	int i;
 	for(i=0; i<buf_len;i++){
-		if(start[i] == '\0')
+		if(start[i] == '\n')
 			return i;
 	}
 
