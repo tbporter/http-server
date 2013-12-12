@@ -49,7 +49,14 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 
     if (!strcasecmp(req->method, "GET")) {
 
-		if (!strstr(req->uri, "cgi-bin"))
+
+		if(strstr(req->uri, "/runloop"))
+			DEBUG_PRINT("/runloop\n");
+		else if(strstr(req->uri, "/allocanon"))
+			DEBUG_PRINT("/allocannon\n");
+		else if(strstr(req->uri, "/freeanon"))
+			DEBUG_PRINT("/freeanon\n");
+		else if (!strstr(req->uri, "cgi-bin"))
 			handle_static_request(socket, req);
 		else
 			handle_dynamic_request(socket, req);
