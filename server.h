@@ -1,9 +1,12 @@
 #ifndef _SERVER_H
 #define _SERVER_H
 #include <time.h>
+#include <stdbool.h>
 #include <sys/epoll.h>
+
 #include "list.h"
 #include "threadpool.h"
+
 struct http_socket;
 
 int open_listenfd(int port);
@@ -21,6 +24,8 @@ struct http_socket {
     char* write_buffer;
     int write_buffer_size;
     int write_buffer_pos;
+    /* mmaped is true if the write_buffer was mmaped not malloced */
+    bool mmaped;
     time_t last_access;
     struct list_elem elem;
 };

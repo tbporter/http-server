@@ -1,3 +1,5 @@
+#ifndef _EVENTS_H
+#define _EVENTS_H
 #include "parse.h"
 
 void* read_conn(void* data);
@@ -7,3 +9,6 @@ void handle_dynamic_request(struct http_socket*, struct http_request* req);
 void print_to_buffer(struct http_socket* socket, char* str, ...);
 int file_exist(char* filename);
 void write_error(int error);
+
+int file_load(struct http_socket* http, char* filename);
+#endif

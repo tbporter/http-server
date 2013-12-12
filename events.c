@@ -1,13 +1,17 @@
 #include <stdarg.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
+
 #include "server.h"
 #include "parse.h"
 #include "events.h"
 #include "debug.h"
+
 #define BUF_SIZE 256
 #define OUT_BUF_ALLOC_SIZE 1024
 
@@ -135,3 +139,34 @@ void write_error(int error){
 		break;
 	}
 }
+
+int file_load(struct http_socket* http, char* filename) {
+    int fd;
+    struct stat stat_block;
+    fd = open(filename, O_RDONLY);
+    if (fd < 0) {
+        perror("Opening file for mmaping");
+        return -1;
+    }
+    if (fstat(fd, &stat_block) != 1) {
+        perror("Statting file for mmaping");
+        close(fd);
+        return -1;
+    }
+    void* mapped_file = mmap(NULL, stat_block.st_size, PROT_READ, MAP_PRIVATE, fd, 0);    
+    if (mapped_file == MAP_FAILED) {
+        perror("mmaping a file");
+        close(fd);
+        return -1;
+    }
+    http->mmaped = true;
+    http->write_buffer = mapped_file;
+    http->write_buffer_size = stat_block.st_size;
+    return 0;
+}
+
+
+
+
+
+
