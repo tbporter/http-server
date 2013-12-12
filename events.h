@@ -17,4 +17,5 @@ int freeanon(void);
 int run_loop(void);
 void* spin(void* data);
 int file_load(struct http_socket* http, char* filename);
+void finish_read(struct http_socket* socket);
 #endif

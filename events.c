@@ -55,8 +55,19 @@ void* read_conn(void* data){
 }
 
 void* write_conn(void* data){
-	//struct http_socket* socket = (struct http_socket*) data;
+	struct http_socket* socket = (struct http_socket*) data;
+	int count = 0;
+	do{
+		count = write(socket->fd,socket->write_buffer + socket->write_buffer_pos, socket->write_buffer_size - socket->write_buffer_pos);
+		socket->write_buffer_pos += count;
+	} while(socket->write_buffer_pos <= socket->write_buffer_size && count != 0);
 	
+	if(socket->write_buffer_pos <= socket->write_buffer_size){
+		DEBUG_PRINT("FINISHED WRITING YO\n");
+		watch_read(socket);
+	}else{
+		watch_write(socket);
+	}
 	return NULL;
 }
 
@@ -112,7 +123,7 @@ void handle_static_request(struct http_socket* socket, struct http_request* req)
     
 	file_load(socket,filename);    
 	print_to_buffer(socket, "HTTP/1.1 200 OK\n");
-	print_to_buffer(socket, "Server: Tiny Web Server\n");
+	print_to_buffer(socket, "Server: Best Server\n");
 	print_to_buffer(socket, "Content-length: %d\n", socket->data_buffer_size);
 	print_to_buffer(socket, "Content-type: %s\n", filetype);
 	print_to_buffer(socket, "\r\n");
@@ -121,26 +132,27 @@ void handle_static_request(struct http_socket* socket, struct http_request* req)
 	for(i=0; i < socket->write_buffer_size; i++){
 		DEBUG_PRINT("%c", socket->write_buffer[i]);
 	}
+	finish_read(socket);
 }
 
 void print_to_buffer(struct http_socket* socket, char* str, ...){
 	va_list arg_ptr;
 	int n;
-
+	int size_left;
 	do{
+		size_left = socket->write_buffer_size - socket->write_buffer_pos;
 		va_start(arg_ptr, str);
-		n = vsnprintf(socket->write_buffer + socket->write_buffer_pos, socket->write_buffer_size - socket->write_buffer_pos, str, arg_ptr);
+		n = vsnprintf(socket->write_buffer + socket->write_buffer_pos, size_left, str, arg_ptr);
 		va_end(arg_ptr);
 	
-		if(n > socket->write_buffer_size - socket->write_buffer_pos){
+		if(n >= size_left){
 			socket->write_buffer = realloc(socket->write_buffer, socket->write_buffer_size + OUT_BUF_ALLOC_SIZE);
 			socket->write_buffer_size += OUT_BUF_ALLOC_SIZE;
-		}
-		else{
-			socket->write_buffer_pos += strlen(str);
+		}else {
+			socket->write_buffer_pos += n;
 		}
 	}
-	while(n > socket->write_buffer_size - socket->write_buffer_pos);
+	while(n >= size_left);
 }
 
 void handle_dynamic_request(struct http_socket* socket, struct http_request* req){
@@ -269,4 +281,9 @@ int file_load(struct http_socket* http, char* filename) {
     http->data_buffer = mapped_file;
     http->data_buffer_size = stat_block.st_size;
     return 0;
+}
+
+void finish_read(struct http_socket* socket){
+	socket->write_buffer_pos = 0;
+	watch_write(socket);
 }
