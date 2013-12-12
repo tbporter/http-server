@@ -19,6 +19,7 @@ int allocanon(void);
 int freeanon(void);
 int run_loop(void);
 void* spin(void* data);
+/* Return 1 for DNE, 2 for permission denied */
 int file_load(struct http_socket* http, char* filename);
 void finish_read(struct http_socket* socket);
 

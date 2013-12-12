@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <errno.h>
 
 #include "server.h"
 #include "parse.h"
@@ -281,6 +282,10 @@ int file_load(struct http_socket* http, char* filename) {
     struct stat stat_block;
     fd = open(filename, O_RDONLY);
     if (fd < 0) {
+        if (fd == EEXIST || fd == EFAULT || fd == ENAMETOOLONG || fd == ETXTBSY)
+            return 1;
+        if (fd == EACCES || fd == EPERM)
+            return 2;
         perror("Opening file for mmaping");
         return -1;
     }
