@@ -123,11 +123,12 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 			handle_dynamic_request(socket, req);
 
     }
-    else
+    else{
     	write_error(socket,501);
+    	return;
+    }
 
-	send_plain_text(socket);
-	finish_read(socket);
+	send_plain_text(socket,0);
 }
 
 void handle_static_request(struct http_socket* socket, struct http_request* req){
@@ -141,7 +142,7 @@ void handle_static_request(struct http_socket* socket, struct http_request* req)
 	DEBUG_PRINT("filename: %s\n", filename);
 
 	if(!file_exist(filename)){
-		write_error(socket,404);
+		write_error(socket,404);	
 		return;
 	}
 	
@@ -190,12 +191,16 @@ void print_to_buffer(struct buffer* b, char* str, ...){
 	while(n >= size_left);
 }
 
-void send_plain_text(struct http_socket* s){
-	print_to_buffer(&s->write, "HTTP/1.1 200 OK\n");
+void send_plain_text(struct http_socket* s, int err){
+	if(err)
+		print_to_buffer(&s->write, "HTTP/1.1 %d\n", err);
+	else
+		print_to_buffer(&s->write, "HTTP/1.1 200 OK\n");
 	print_to_buffer(&s->write, "Server: Best Server\n");
 	print_to_buffer(&s->write, "Content-length: %d\n", s->data.pos);
 	print_to_buffer(&s->write, "Content-type: text/plain\n");
 	print_to_buffer(&s->write, "\r\n");
+	finish_read(s);
 }
 
 void handle_dynamic_request(struct http_socket* socket, struct http_request* req){
@@ -215,6 +220,7 @@ int file_exist(char* filename){
 void write_error(struct http_socket* s,int error){
 	DEBUG_PRINT("Http error: %d\n", error);
 	print_to_buffer(&s->data,"HTTP Error %d\n", error);
+	send_plain_text(s,error);
 }
 
 int allocanon() {

@@ -13,7 +13,7 @@ void print_to_buffer(struct buffer*, char* str, ...);
 int file_exist(char* filename);
 void write_error(struct http_socket*,int error);
 
-void send_plain_text(struct http_socket*);
+void send_plain_text(struct http_socket*, int error);
 /* Run a loop for 15 seconds */
 int allocanon(void);
 /* Returns 1 if none are available to munmap, 0 on success and -1 on error */
