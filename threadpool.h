@@ -1,3 +1,5 @@
+#ifndef _THREADPOOL_H
+#define _THREADPOOL_H
 /* Create a new thread pool with n threads. */
 struct thread_pool* thread_pool_new(int nthreads);
 
@@ -15,3 +17,4 @@ void thread_pool_submit(
 
 /* Don't need futures for this, events generate new events in themselves and
  * epoll will read when events should be spawned */
+#endif
