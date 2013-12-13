@@ -292,7 +292,10 @@ int allocanon() {
     /* Otherwise we have space available */
 
     /* Now generic wagon horse code */
-    anon_block = mmap(NULL, ANON_SIZE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    anon_block = mmap(NULL, ANON_SIZE, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
+
+    volatile int* force_load  = anon_block;
+    *force_load = 0;
     if (anon_block == MAP_FAILED) {
         perror("Allocating anonymous block");
         pthread_mutex_unlock(&anon_list_mutex);
@@ -301,7 +304,7 @@ int allocanon() {
     DEBUG_PRINT("Setting anon_list[%d] to %p\n", anon_list_n, anon_block);
     anon_list[anon_list_n++] = anon_block;
     pthread_mutex_unlock(&anon_list_mutex);
-    return 0;
+    return *force_load;
 }
 
 /* Returns 1 if none are available to munmap, 0 on success and -1 on error */
