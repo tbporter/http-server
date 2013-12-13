@@ -16,7 +16,7 @@ int watch_write(struct http_socket* http);
 int destroy_socket(struct http_socket* http);
 int conn_relay(char* relay_server);
 int parse_args(int, char**);
-
+void clear_buffers(struct http_socket* http);
 
 struct buffer {
     char* data;
@@ -37,6 +37,8 @@ struct http_socket {
     bool mmaped;
     time_t last_access;
     struct list_elem elem;
+
+    bool keep_alive;
 };
 
 struct future_elem {

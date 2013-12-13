@@ -15,7 +15,7 @@
 #include "debug.h"
 #include "json.h"
 
-#define BUF_SIZE 256
+#define BUF_SIZE 2048
 #define OUT_BUF_ALLOC_SIZE 512
 
 #define ANON_SIZE 67108864
@@ -52,6 +52,7 @@ void* read_conn(void* data){
 
 	if(parse_header(socket->read_buffer, socket->read_buffer_size, &req)){
 		DEBUG_PRINT("HTTP request- method: %s, uri: %s, ver: %s\n", req.method, req.uri, req.ver);
+		socket->keep_alive = req.keep_alive;
 		handle_request(socket,&req);
 		return NULL;
 	}
@@ -65,23 +66,32 @@ void* read_conn(void* data){
 void* write_conn(void* data){
 	struct http_socket* socket = (struct http_socket*) data;
 	int count = 0;
+
+	DEBUG_PRINT("WRITE_CONN: data.last: %d\n",socket->data.last);
 	do{
 		
 		if(!is_buffer_finished(socket->write)){
 			count = write(socket->fd,socket->write.data + socket->write.pos, socket->write.last - socket->write.pos);
 			socket->write.pos += count;
+			DEBUG_PRINT("WROTE %d HEADER BYTES\n", count);
 		}
 		if(is_buffer_finished(socket->write) && !is_buffer_finished(socket->data)){
-			count = write(socket->fd,socket->data.data + socket->data.pos, socket->data.size - socket->data.pos);
+			count = write(socket->fd,socket->data.data + socket->data.pos, socket->data.last - socket->data.pos);
 			socket->data.pos += count;
+			DEBUG_PRINT("WROTE %d DATA BYTES\n", count);
 		}
-		DEBUG_PRINT("NOT FINISHED");
+
 	} while(!is_buffer_finished(socket->write) && !is_buffer_finished(socket->data) && count != 0);
 	
 	if(is_buffer_finished(socket->write) && is_buffer_finished(socket->data)){
 		DEBUG_PRINT("FINISHED WRITING YO\n");
 		DEBUG_PRINT("size: %d\n", socket->data.size);
-		watch_read(socket);
+		if(socket->keep_alive){
+			clear_buffers(socket);
+			watch_read(socket);
+		}
+		else
+			destroy_socket(socket);
 	}else{
 		watch_write(socket);
 	}
@@ -102,8 +112,8 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 			if(req->cb[0] != '\0'){
 				print_to_buffer(&socket->data, "%s(", req->cb);
 				loadavg(&socket->data);
-				print_to_buffer(&socket->data, ")");	
-			} else 
+				print_to_buffer(&socket->data, ")");
+			}else 
 				loadavg(&socket->data);
 
 			send_json(socket, 0);
@@ -112,13 +122,13 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 			DEBUG_PRINT("/meminfo\n");
 
 			if(req->cb[0] != '\0'){
-				print_to_buffer(&socket->data, "%s(", req->cb);	
+				print_to_buffer(&socket->data, "%s(", req->cb);
 				meminfo(&socket->data);	
 				print_to_buffer(&socket->data, ")");
 			} else
 				meminfo(&socket->data);	
 	
-			send_json(socket,0);    		
+			send_json(socket,0);
 		}
 		else if(strstr(req->uri, "/runloop")){
 			DEBUG_PRINT("/runloop\n");
@@ -185,10 +195,10 @@ void handle_static_request(struct http_socket* socket, struct http_request* req)
 
     
 	file_load(socket,filename);    
-	print_to_buffer(&socket->write, "HTTP/1.1 200 OK\n");
-	print_to_buffer(&socket->write, "Server: Best Server\n");
-	print_to_buffer(&socket->write, "Content-length: %d\n", socket->data.size);
-	print_to_buffer(&socket->write, "Content-type: %s\n", filetype);
+	print_to_buffer(&socket->write, "HTTP/1.1 200 OK\r\n");
+	print_to_buffer(&socket->write, "Server: Best Server\r\n");
+	print_to_buffer(&socket->write, "Content-length: %d\r\n", socket->data.size);
+	print_to_buffer(&socket->write, "Content-type: %s\r\n", filetype);
 	print_to_buffer(&socket->write, "\r\n");
 
 	int i;
@@ -214,6 +224,7 @@ void print_to_buffer(struct buffer* b, char* str, ...){
 			b->size += OUT_BUF_ALLOC_SIZE;
 		}else {
 			b->pos += n;
+			DEBUG_PRINT("BUFFER POS: %d\n",b->pos);
 		}
 	}
 	while(n >= size_left);
@@ -221,25 +232,27 @@ void print_to_buffer(struct buffer* b, char* str, ...){
 
 void send_plain_text(struct http_socket* s, int err){
 	if(err)
-		print_to_buffer(&s->write, "HTTP/1.1 %d\n", err);
+		print_to_buffer(&s->write, "HTTP/1.1 %d\r\n", err);
 	else
-		print_to_buffer(&s->write, "HTTP/1.1 200 OK\n");
-	print_to_buffer(&s->write, "Server: Best Server\n");
-	print_to_buffer(&s->write, "Content-length: %d\n", s->data.pos);
-	print_to_buffer(&s->write, "Content-type: text/plain\n");
+		print_to_buffer(&s->write, "HTTP/1.1 200 OK\r\n");
+	print_to_buffer(&s->write, "Server: Best Server\r\n");
+	print_to_buffer(&s->write, "Content-length: %d\r\n", s->data.pos);
+	print_to_buffer(&s->write, "Content-type: text/plain\r\n");
 	print_to_buffer(&s->write, "\r\n");
 	finish_read(s);
 }
 
 void send_json(struct http_socket* s, int err){
 	if(err)
-		print_to_buffer(&s->write, "HTTP/1.1 %d\n", err);
+		print_to_buffer(&s->write, "HTTP/1.1 %d\r\n", err);
 	else
-		print_to_buffer(&s->write, "HTTP/1.1 200 OK\n");
-	print_to_buffer(&s->write, "Server: Best Server\n");
-	print_to_buffer(&s->write, "Content-length: %d\n", s->data.pos);
-	print_to_buffer(&s->write, "Content-type: application/json\n");
+		print_to_buffer(&s->write, "HTTP/1.1 200 OK\r\n");
+	print_to_buffer(&s->write, "Server: Best Server\r\n");
+	print_to_buffer(&s->write, "Content-length: %d\r\n", s->data.pos);
+	print_to_buffer(&s->write, "Content-type: application/json\r\n");
 	print_to_buffer(&s->write, "\r\n");
+
+
 	finish_read(s);
 }
 

@@ -280,6 +280,10 @@ int parse_args(int argc, char** argv) {
 
 int watch_read(struct http_socket* http) {
     http->event.events = EPOLL_READ;
+    return epoll_ctl(epoll_fd, EPOLL_CTL_MOD, http->fd, &http->event);
+}
+
+void clear_buffers(struct http_socket* http){
     if (http->write.data) {
         free(http->write.data);
         http->write.data = NULL;
@@ -307,7 +311,6 @@ int watch_read(struct http_socket* http) {
         http->read_buffer = NULL;
         http->read_buffer_size = 0;
     }
-    return epoll_ctl(epoll_fd, EPOLL_CTL_MOD, http->fd, &http->event);
 }
 int watch_write(struct http_socket* http) {
     http->event.events = EPOLL_WRITE;

@@ -1,10 +1,13 @@
 #ifndef _PARSE_H
 #define _PARSE_H
+
+#include <stdbool.h>
 struct http_request {
     char* method;
     char* uri;
     char* ver;
     char* cb;
+    bool keep_alive;
 };
 
 int parse_is_header_finished(char* buf, int buf_length);

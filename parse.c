@@ -1,17 +1,20 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include "parse.h"
 #include "debug.h"
 #include <ctype.h>
-#define BUF_LEN 1024
+#define BUF_LEN 4096
 
 int parse_is_header_finished(char* buf, int buf_len){
-    int i;
-    for(i=0; i<buf_len-1; i++){
-        if(!strncmp(buf+i,"\r\n",2)){
-            return 1;
-        }
+    int i;  	
+    for(i=0; i<buf_len - 3; i++){
+
+    	if (buf[i] == '\r' && buf[i+1] == '\n' && buf[i+2] == '\r' && buf[i+3] == '\n') {
+    		return 1;
+    	}
     }
+
     return 0;
 }
 
@@ -34,6 +37,17 @@ int parse_header(char* buf, int buf_len, struct http_request* req){
 
 	sscanf(tmp, "%s %s %s\n", req->method, req->uri, req->ver);
 	parse_uri_callback(req);
+
+	while(str_s_len>0){
+		str_s_len = parse_string(str_s, buf_len);
+		strncpy(tmp, str_s, str_s_len);
+		if(strstr(tmp, "Connection: Keep-Alive")){
+			DEBUG_PRINT("KEEP THAT SHIZ ALIVE\n");
+			req->keep_alive = true;
+			return 1;
+		}
+		str_s = str_s + str_s_len;
+	}
 	return 1;
 }
 
@@ -64,6 +78,7 @@ int parse_header(char* buf, int buf_len, struct http_request* req){
 		}
 		i++;
 	}
+	DEBUG_PRINT("callback= %s\n", r->cb);
 }
 
 int parse_string(char* start, int buf_len){

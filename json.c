@@ -16,7 +16,7 @@ int loadavg(struct buffer* buf) {
    		ssize_t lsz = getline (&line, &size, f);
    		if(lsz >0){
    			sscanf(line, "%f %f %f %d/%d %d\n", &avg.wait1,&avg.wait5,&avg.wait15,&avg.runable_entities,&avg.entities,&avg.last_pid );
-			print_to_buffer(buf, "{\"total_threads\": \"%d\", \"loadavg\": [\"%f\", \"%f\", \"%f\"], \"running_threads\": \"%d\"}", avg.entities, avg.wait1,avg.wait5,avg.wait15, avg.runable_entities);
+			print_to_buffer(buf, "{\"total_threads\": \"%d\", \"loadavg\": [\"%.2f\", \"%.2f\", \"%.2f\"], \"running_threads\": \"%d\"}", avg.entities, avg.wait1,avg.wait5,avg.wait15, avg.runable_entities);
 		}	
 	}
 	fclose (f);
