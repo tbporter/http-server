@@ -50,7 +50,13 @@ int parse_header(char* buf, int buf_len, struct http_request* req){
 		i++;
 	}
 
-	i = 0;
+	if(strncmp ("callback=", r->cb, 9) != 0){
+		DEBUG_PRINT("no callback");
+		r->cb[0] = '\0';
+		return;
+	}
+	strcpy(r->cb, r->cb + 9);
+	i = 10;
 	while(r->cb[i] != '\0' && i<BUF_LEN){
 		if(!(isalnum(r->cb[i]) || r->cb[i] == '_' || r->cb[i] == '.')){
 			r->cb[i] = '\0';
