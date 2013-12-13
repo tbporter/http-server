@@ -280,6 +280,33 @@ int parse_args(int argc, char** argv) {
 
 int watch_read(struct http_socket* http) {
     http->event.events = EPOLL_READ;
+    if (http->write.data) {
+        free(http->write.data);
+        http->write.data = NULL;
+        http->write.size = 0;
+        http->write.pos = 0;
+        http->write.last = 0;
+    }
+    if (http->mmaped) {
+        DEBUG_PRINT("munmap the file because we're done writing\n");
+        munmap(http->data.data, http->data.size);
+        http->data.data = NULL;
+        http->data.size = 0;
+        http->data.pos = 0;
+        http->data.last = 0;
+    }
+    if (http->data.data) {
+        free(http->write.data);
+        http->data.data = NULL;
+        http->data.size = 0;
+        http->data.pos = 0;
+        http->data.last = 0;
+    }
+    if (http->read_buffer) {
+        free(http->read_buffer);
+        http->read_buffer = NULL;
+        http->read_buffer_size = 0;
+    }
     return epoll_ctl(epoll_fd, EPOLL_CTL_MOD, http->fd, &http->event);
 }
 int watch_write(struct http_socket* http) {

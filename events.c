@@ -44,6 +44,10 @@ void* read_conn(void* data){
 	}while(count>0);
   	//Save room on the stack
 	char m[BUF_SIZE],u[BUF_SIZE],v[BUF_SIZE], cb[BUF_SIZE];
+        memset(m, '\0', BUF_SIZE); 
+        memset(m, '\0', BUF_SIZE);
+        memset(m, '\0', BUF_SIZE);
+        memset(m, '\0', BUF_SIZE);
 	struct http_request req = {m, u, v, cb};
 
 	if(parse_header(socket->read_buffer, socket->read_buffer_size, &req)){

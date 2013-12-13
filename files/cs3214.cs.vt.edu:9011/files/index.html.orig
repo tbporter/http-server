@@ -12,7 +12,7 @@
        and loadavg, respectively.  
        Change the 'url' attribute to point to your web service.
     -->
-<script language="javascript" type="text/javascript" src="/files/sysstatwidgets.js">
+<script language="javascript" type="text/javascript" src="sysstatwidgets.js">
 </script>
 <script type="text/javascript">
 function send(url, rselector) {
@@ -32,18 +32,18 @@ function send(url, rselector) {
     
   <p>
   <script>var count = 0;</script>
-  <a href="index.html#" onclick="javascript:send('/runloop', '#responsemsg');">Click here</a> to run a 15 second loop on this machine (which will result in an increase in the load average).
+  <a href="#" onclick="javascript:send('/runloop', '#responsemsg');">Click here</a> to run a 15 second loop on this machine (which will result in an increase in the load average).
       <span id="responsemsg"></span>
   </p>
 
   <p>
-  <a href="index.html#" onclick="javascript:send('/allocanon', '#responsemsg2');">Click here</a> to force allocation of 64MB of physical
+  <a href="#" onclick="javascript:send('/allocanon', '#responsemsg2');">Click here</a> to force allocation of 64MB of physical
         memory used as application (anonymous) memory.
       <span id="responsemsg2"></span>
   </p>
 
   <p>
-  <a href="index.html#" onclick="javascript:send('/freeanon', '#responsemsg3');">Click here</a> to force deallocation of last
+  <a href="#" onclick="javascript:send('/freeanon', '#responsemsg3');">Click here</a> to force deallocation of last
         chunk of allocated physical memory.
       <span id="responsemsg3"></span>
   </p>
