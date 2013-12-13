@@ -2,6 +2,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <error.h>
@@ -65,10 +67,10 @@ int main(int argc, char** argv) {
 
     /* If we are connecting to a relay server */
     if (relay_server) {
-        //if (conn_relay()) {
-        //    printf("Failed to setup relay server, double check your argument\n");
-        //    return -1;
-        //}
+        if (conn_relay(relay_server)) {
+            printf("Failed to setup relay server, double check your argument\n");
+            return -1;
+        }
     }
 
     /* Accept a connection */
@@ -177,20 +179,94 @@ int open_listenfd(int port) {
     return listenfd;
 }
 
+int conn_relay(char* relay_server) {
+    struct addrinfo hints, *server;
+    int fd;
+    char* port;
+    char* hostname = NULL;
+
+    /* First parse out the relay_server */
+    int i;
+    for (i = 0; relay_server[i] != '\0'; i++) {
+        if (relay_server[i] == ':') {
+            if ((hostname = malloc(i + 1)) == NULL) {
+                perror("Failed to malloc relay server hostname");
+                return -1;
+            }
+            memcpy(hostname, relay_server, i);
+            hostname[i] = '\0';
+            port = relay_server + i + 1;
+            break;
+        }
+    }
+    if (hostname == NULL || port == 0) {
+        fprintf(stderr, "Invalid relay server\n");
+        return -1;
+    }
+    DEBUG_PRINT("Detected host: %s, port: %s\n", hostname, port);
+
+    memset(&hints, 0, sizeof hints);
+    /* Configure new socket */
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if (getaddrinfo(hostname, port, &hints, &server)) {
+        perror("Getting relay server addr info");
+        return -1;
+    }
+
+    struct addrinfo* c_addr;
+    for (c_addr = server; c_addr != NULL; c_addr = c_addr->ai_next) {
+        if ((fd = socket(c_addr->ai_family, c_addr->ai_socktype,
+                        c_addr->ai_protocol)) == -1) {
+            perror("Creating relay server socket");
+            continue;
+        }
+        if (connect(fd, c_addr->ai_addr, c_addr->ai_addrlen) == -1) {
+            close(fd);
+            perror("Connecting to relay server");
+            continue;
+        }
+        break;
+    }
+    /* now check if one was successful */
+    if (c_addr == NULL) {
+        fprintf(stderr, "Unable to connect to relay server\n");
+        return -1;
+    }
+    freeaddrinfo(server);
+    free(hostname);
+    /* Good we were successful now get it in epoll */
+    struct http_socket* http = calloc(1, sizeof(struct http_socket));
+    if (http == NULL) {
+        perror("Allocating relay server http_socket");
+        return -1;
+    }
+    http->fd = fd;
+    http->event.events = EPOLL_READ;
+    http->event.data.ptr = http;
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &http->event) < 0) {
+        perror("Adding relay server connection to epoll");
+        return -1;
+    }
+    return 0;
+}
+
 int parse_args(int argc, char** argv) {
     while(true) {
-        char current_opt = getopt(argc, argv, "r:p:R");
+        char current_opt = getopt(argc, argv, "r:p:R:");
         if (current_opt == 'r') {
             /* Iterate optind and set relay server */
-            DEBUG_PRINT("Setting relay server to %s\n", argv[optind - 1]);
-            relay_server = argv[optind - 1];
+            DEBUG_PRINT("Setting relay server to %s\n", optarg);
+            relay_server = optarg;
         }
         else if (current_opt == 'R') {
-            /* TODO: set path */
+            DEBUG_PRINT("Setting server root to %s\n", optarg);
+            set_path(optarg);
         }
         else if (current_opt == 'p') {
-            DEBUG_PRINT("Setting port to %s %d\n", argv[optind - 1], optind);
-            port_n = atoi(argv[optind - 1]);
+            DEBUG_PRINT("Setting port to %s\n", optarg);
+            port_n = atoi(optarg);
         }
         else if (current_opt == -1) {
             return 0;
@@ -229,6 +305,7 @@ int destroy_socket(struct http_socket* http){
             }
         }
         else {
+            DEBUG_PRINT("%p", http->data.data);
             free(http->data.data);
         }
     }
