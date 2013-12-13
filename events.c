@@ -86,6 +86,7 @@ void* write_conn(void* data){
 	if(is_buffer_finished(socket->write) && is_buffer_finished(socket->data)){
 		DEBUG_PRINT("FINISHED WRITING YO\n");
 		DEBUG_PRINT("size: %d\n", socket->data.size);
+		
 		if(socket->keep_alive){
 			clear_buffers(socket);
 			watch_read(socket);
@@ -104,9 +105,15 @@ bool is_buffer_finished(struct buffer b){
 
 void handle_request(struct http_socket* socket, struct http_request* req){
 
+	if (!strcasecmp(req->ver, "HTTP/1.0")){
+		socket->keep_alive = false;
+	}
+	else{
+		socket->keep_alive = true;
+	}
     if (!strcasecmp(req->method, "GET")) {
 
-    	if(strstr(req->uri, "/loadavg")){
+    	if(!strcmp(req->uri, "/loadavg")){
 			DEBUG_PRINT("/roadavg\n");
 
 			if(req->cb[0] != '\0'){
@@ -118,7 +125,7 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 
 			send_json(socket, 0);
     	}
-		else if(strstr(req->uri, "/meminfo")){
+		else if(!strcmp(req->uri, "/meminfo")){
 			DEBUG_PRINT("/meminfo\n");
 
 			if(req->cb[0] != '\0'){
@@ -130,13 +137,13 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 	
 			send_json(socket,0);
 		}
-		else if(strstr(req->uri, "/runloop")){
+		else if(!strcmp(req->uri, "/runloop")){
 			DEBUG_PRINT("/runloop\n");
 			run_loop();
 			print_to_buffer(&socket->data, "Started loop");
 			send_plain_text(socket,0);
 		}
-		else if(strstr(req->uri, "/allocanon")){
+		else if(!strcmp(req->uri, "/allocanon")){
 			DEBUG_PRINT("/allocannon\n");
 			if(allocanon() == 0)
 				print_to_buffer(&socket->data, "allocanon success");
@@ -146,7 +153,7 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 			send_plain_text(socket,0);
 
 		}
-		else if(strstr(req->uri, "/freeanon")){
+		else if(!strcmp(req->uri, "/freeanon")){
 			DEBUG_PRINT("/freeanon\n");
 			if(freeanon() == 0)
 				print_to_buffer(&socket->data, "freeanon success");
