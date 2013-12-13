@@ -43,8 +43,8 @@ void* read_conn(void* data){
 		}
 	}while(count>0);
   	//Save room on the stack
-	char m[BUF_SIZE],u[BUF_SIZE],v[BUF_SIZE];
-	struct http_request req = {m, u, v};
+	char m[BUF_SIZE],u[BUF_SIZE],v[BUF_SIZE], cb[BUF_SIZE];
+	struct http_request req = {m, u, v, cb};
 
 	if(parse_header(socket->read_buffer, socket->read_buffer_size, &req)){
 		DEBUG_PRINT("HTTP request- method: %s, uri: %s, ver: %s\n", req.method, req.uri, req.ver);
@@ -94,12 +94,26 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 
     	if(strstr(req->uri, "/loadavg")){
 			DEBUG_PRINT("/roadavg\n");
-			loadavg(&socket->data);
+
+			if(req->cb[0] != '\0'){
+				print_to_buffer(&socket->data, "%s(", req->cb);
+				loadavg(&socket->data);
+				print_to_buffer(&socket->data, ")");	
+			} else 
+				loadavg(&socket->data);
+
 			send_json(socket, 0);
     	}
 		else if(strstr(req->uri, "/meminfo")){
 			DEBUG_PRINT("/meminfo\n");
-			meminfo(&socket->data);
+
+			if(req->cb[0] != '\0'){
+				print_to_buffer(&socket->data, "%s(", req->cb);	
+				meminfo(&socket->data);	
+				print_to_buffer(&socket->data, ")");
+			} else
+				meminfo(&socket->data);	
+	
 			send_json(socket,0);    		
 		}
 		else if(strstr(req->uri, "/runloop")){

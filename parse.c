@@ -2,6 +2,7 @@
 #include <string.h>
 #include "parse.h"
 #include "debug.h"
+#include <ctype.h>
 #define BUF_LEN 1024
 
 int parse_is_header_finished(char* buf, int buf_len){
@@ -30,8 +31,33 @@ int parse_header(char* buf, int buf_len, struct http_request* req){
 	}
 
 	strncpy(tmp, str_s, str_s_len);
+
 	sscanf(tmp, "%s %s %s\n", req->method, req->uri, req->ver);
+	parse_uri_callback(req);
 	return 1;
+}
+
+ void parse_uri_callback(struct http_request* r){
+	int i = 0;
+
+	r->cb[0] = '\0';
+	while(r->uri[i] != '\0' && i<BUF_LEN){
+		if(r->uri[i] == '?'){
+			strcpy(r->cb, r->uri + i + 1);
+			r->uri[i] = '\0';
+			break;
+		}
+		i++;
+	}
+
+	i = 0;
+	while(r->cb[i] != '\0' && i<BUF_LEN){
+		if(!(isalnum(r->cb[i]) || r->cb[i] == '_' || r->cb[i] == '.')){
+			r->cb[i] = '\0';
+			break;
+		}
+		i++;
+	}
 }
 
 int parse_string(char* start, int buf_len){
