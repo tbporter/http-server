@@ -25,7 +25,7 @@ static void** anon_list = NULL;
 static int anon_list_n;
 static int anon_list_size;
 
-static char* file_path;
+static char* file_path = "./";
 
 void* read_conn(void* data){
 	
@@ -157,10 +157,11 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 void handle_static_request(struct http_socket* socket, struct http_request* req){
 	char filename[BUF_SIZE], filetype[BUF_SIZE];
 
+	DEBUG_PRINT("derp");
+	
 	strcpy(filename, file_path);
 	strcat(filename, req->uri);
-	if (req->uri[strlen(req->uri)-1] == '/') 
-		strcat(filename, "files/index.html");
+		
 
 	DEBUG_PRINT("filename: %s\n", filename);
 
@@ -247,9 +248,9 @@ void handle_dynamic_request(struct http_socket* socket, struct http_request* req
 
 int file_exist(char* filename){
 	struct stat sbuf;
-    if (stat(filename, &sbuf) < 0)
-    	return 0;
-    return 1;
+    if (stat(filename, &sbuf) == 0 && S_ISREG(sbuf.st_mode))
+    	return 1;
+    return 0;
 }
 
 void write_error(struct http_socket* s,int error){
