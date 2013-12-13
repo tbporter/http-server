@@ -36,6 +36,9 @@ static int epoll_fd;
 static struct thread_pool* tpool;
 
 static char* relay_server = NULL;
+#define RELAY_PREFIX_LENGTH 10
+static const char* relay_prefix = "group394\n";
+
 
 int main(int argc, char** argv) {
     int listening_sock;
@@ -243,8 +246,18 @@ int conn_relay(char* relay_server) {
         return -1;
     }
     http->fd = fd;
-    http->event.events = EPOLL_READ;
+    http->event.events = EPOLL_WRITE;
     http->event.data.ptr = http;
+    http->write.data = malloc(10);
+    if (http->write.data == NULL) {
+        perror("Allocating space for prefix");
+        return -1;
+    }
+    http->write.pos = 0;
+    http->write.last = 0;
+    http->write.size = 10;
+    strcpy(http->write.data, relay_prefix);
+
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &http->event) < 0) {
         perror("Adding relay server connection to epoll");
         return -1;
