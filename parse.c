@@ -38,16 +38,12 @@ int parse_header(char* buf, int buf_len, struct http_request* req){
 	sscanf(tmp, "%s %s %s\n", req->method, req->uri, req->ver);
 	parse_uri_callback(req);
 
-	while(str_s_len>0){
-		str_s_len = parse_string(str_s, buf_len);
-		strncpy(tmp, str_s, str_s_len);
-		if(strstr(tmp, "Connection: Keep-Alive")){
-			DEBUG_PRINT("KEEP THAT SHIZ ALIVE\n");
-			req->keep_alive = true;
-			return 1;
-		}
-		str_s = str_s + str_s_len;
+	int i;
+	DEBUG_PRINT("START OF BUFFER READ\n");
+	for(i=0; i<buf_len; i++){
+		DEBUG_PRINT("%c", buf[i]);
 	}
+	DEBUG_PRINT("\nEND OF BUFFER READ\n");
 	return 1;
 }
 
