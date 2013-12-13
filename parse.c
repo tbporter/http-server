@@ -48,33 +48,45 @@ int parse_header(char* buf, int buf_len, struct http_request* req){
 }
 
  void parse_uri_callback(struct http_request* r){
-	int i = 0;
+	int i;
 
 	r->cb[0] = '\0';
-	while(r->uri[i] != '\0' && i<BUF_LEN){
+
+	//Find the ?
+	for(i=0; r->uri[i] != '\0' && i< BUF_LEN; i++){
 		if(r->uri[i] == '?'){
-			strcpy(r->cb, r->uri + i + 1);
-			r->uri[i] = '\0';
 			break;
 		}
-		i++;
 	}
-
-	if(strncmp ("callback=", r->cb, 9) != 0){
-		DEBUG_PRINT("no callback");
-		r->cb[0] = '\0';
+	//If it's not a ?, return
+	if( i>= BUF_LEN || r->uri[i] != '?'){
+		DEBUG_PRINT("no callback last char: %c\n", r->uri[i]);
 		return;
 	}
-	strcpy(r->cb, r->cb + 9);
-	i = 10;
-	while(r->cb[i] != '\0' && i<BUF_LEN){
-		if(!(isalnum(r->cb[i]) || r->cb[i] == '_' || r->cb[i] == '.')){
-			r->cb[i] = '\0';
-			break;
+	r->uri[i] = '\0';
+	i++; //increment past ?
+
+
+	for(; i!= '\0' && i<BUF_LEN; i++){
+		
+		if(strncmp("callback=", r->uri +i ,9) == 0){
+			int j;
+			i = i + 9;
+			for(j=0; j<BUF_LEN; j++){
+				if(!(isalnum(r->uri[i]) || r->uri[i] == '_' || r->uri[i] == '.')){
+					r->cb[j] = '\0';
+					DEBUG_PRINT("CALLBACK = %s\n", r->cb);
+					return;
+				}
+				r->cb[j] = r->uri[i];
+				i++;
+			}		
 		}
-		i++;
+		
+		while(i<BUF_LEN && r->uri[i] != '&' && r->uri[i] != '\0'){
+			i++;
+		}
 	}
-	DEBUG_PRINT("callback= %s\n", r->cb);
 }
 
 int parse_string(char* start, int buf_len){

@@ -38,6 +38,7 @@ struct http_socket {
     time_t last_access;
     struct list_elem elem;
 
+
     bool keep_alive;
 };
 

@@ -45,13 +45,13 @@ void* read_conn(void* data){
   	//Save room on the stack
 	char m[BUF_SIZE],u[BUF_SIZE],v[BUF_SIZE], cb[BUF_SIZE];
         memset(m, '\0', BUF_SIZE); 
-        memset(m, '\0', BUF_SIZE);
-        memset(m, '\0', BUF_SIZE);
-        memset(m, '\0', BUF_SIZE);
+        memset(u, '\0', BUF_SIZE);
+        memset(v, '\0', BUF_SIZE);
+        memset(cb, '\0', BUF_SIZE);
 	struct http_request req = {m, u, v, cb};
 
 	if(parse_header(socket->read_buffer, socket->read_buffer_size, &req)){
-		DEBUG_PRINT("HTTP request- method: %s, uri: %s, ver: %s\n", req.method, req.uri, req.ver);
+		DEBUG_PRINT("HTTP request- method: %s, uri: %s, ver: %s, cb: %s\n", req.method, req.uri, req.ver, req.cb);
 		socket->keep_alive = req.keep_alive;
 		handle_request(socket,&req);
 		return NULL;
@@ -129,6 +129,7 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 			DEBUG_PRINT("/meminfo\n");
 
 			if(req->cb[0] != '\0'){
+				DEBUG_PRINT("WRAPPING CALLBACK\n");
 				print_to_buffer(&socket->data, "%s(", req->cb);
 				meminfo(&socket->data);	
 				print_to_buffer(&socket->data, ")");
