@@ -240,6 +240,11 @@ int conn_relay(char* relay_server) {
     freeaddrinfo(server);
     free(hostname);
     /* Good we were successful now get it in epoll */
+    /* Make socket non-blocking */
+    int flags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+    /* Setup socket struct */
     struct http_socket* http = calloc(1, sizeof(struct http_socket));
     if (http == NULL) {
         perror("Allocating relay server http_socket");
