@@ -36,6 +36,9 @@ static int epoll_fd;
 static struct thread_pool* tpool;
 
 static char* relay_server = NULL;
+#define RELAY_PREFIX_LENGTH 10
+static const char* relay_prefix = "group394\r\n";
+
 
 int main(int argc, char** argv) {
     int listening_sock;
@@ -237,6 +240,11 @@ int conn_relay(char* relay_server) {
     freeaddrinfo(server);
     free(hostname);
     /* Good we were successful now get it in epoll */
+    /* Make socket non-blocking */
+    int flags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+    /* Setup socket struct */
     struct http_socket* http = calloc(1, sizeof(struct http_socket));
     if (http == NULL) {
         perror("Allocating relay server http_socket");
@@ -245,6 +253,7 @@ int conn_relay(char* relay_server) {
     http->fd = fd;
     http->event.events = EPOLL_READ;
     http->event.data.ptr = http;
+    write(fd, relay_prefix, 10);
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &http->event) < 0) {
         perror("Adding relay server connection to epoll");
         return -1;
