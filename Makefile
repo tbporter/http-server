@@ -10,21 +10,17 @@ CFLAGS=-Wall -Werror -Wmissing-prototypes
 
 OBJECTS=server.o list.o threadpool.o parse.o events.o json.o
 HEADERS=server.h list.h threadpool.h parse.h events.h json.h
-PLUGINDIR=plugins
 
 default: sysstatd
 
 debug: CFLAGS += -DDEBUG -g
 	HEADERS += debug.h
-debug: sysstatd relay-server
+debug: sysstatd
 
 $(OBJECTS) : $(HEADERS)
 
 sysstatd: $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $(LDFLAGS) $(OBJECTS) $(LDLIBS)
-relay_server.o: relay_server.h
-relay-server: relay_server.o
-	$(CC) $(CFLAGS) -o $@ $(LDFLAGS) relay_server.o $(LDLIBS)
 
 clean: 
 	rm -f $(OBJECTS) $(LIB_OBJECTS) sysstatd \
