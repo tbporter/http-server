@@ -12,16 +12,18 @@ OBJECTS=server.o list.o threadpool.o parse.o events.o json.o
 HEADERS=server.h list.h threadpool.h parse.h events.h json.h
 PLUGINDIR=plugins
 
-default: http-server
+default: sysstatd
 
 debug: CFLAGS += -DDEBUG -g
 	HEADERS += debug.h
-debug: http-server
+debug: sysstatd
 
 $(OBJECTS) : $(HEADERS)
 
-http-server: $(OBJECTS)
+sysstatd: $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $(LDFLAGS) $(OBJECTS) $(LDLIBS)
 
 clean: 
-	rm -f $(OBJECTS) $(LIB_OBJECTS) http-server \
+	rm -f $(OBJECTS) $(LIB_OBJECTS) sysstatd \
+
+all: sysstatd
