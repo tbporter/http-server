@@ -16,12 +16,15 @@ default: http-server
 
 debug: CFLAGS += -DDEBUG -g
 	HEADERS += debug.h
-debug: http-server
+debug: http-server relay-server
 
 $(OBJECTS) : $(HEADERS)
 
 http-server: $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $(LDFLAGS) $(OBJECTS) $(LDLIBS)
+relay_server.o: relay_server.h
+relay-server: relay_server.o
+	$(CC) $(CFLAGS) -o $@ $(LDFLAGS) relay_server.o $(LDLIBS)
 
 clean: 
 	rm -f $(OBJECTS) $(LIB_OBJECTS) http-server \
