@@ -27,6 +27,10 @@ static int anon_list_size;
 
 static char* file_path = "./";
 
+/*	Event for reading a socket
+	If it doesn't fully read the header, put another read event on the server and exit.
+	If it has the whole header, do the request put a write event on the server.
+*/
 void* read_conn(void* data){
 	
 	struct http_socket* socket = (struct http_socket*) data;
@@ -62,6 +66,10 @@ void* read_conn(void* data){
 		return NULL;
 	}
 }
+/*	Event for writing to a socket
+	If it doesn't fully write the buffer, put another write event on the server and exit.
+	If it has written the whole buffer, either add a read event to the server if it is a keep alive connection, else close the socket.
+*/
 
 void* write_conn(void* data){
 	struct http_socket* socket = (struct http_socket*) data;
@@ -103,6 +111,8 @@ bool is_buffer_finished(struct buffer b){
 	return b.pos >= b.last; 
 }
 
+/*	Logic for handling the request,
+	Based off http_request structure */
 void handle_request(struct http_socket* socket, struct http_request* req){
 
 	if (!strcasecmp(req->ver, "HTTP/1.0")){
@@ -115,7 +125,7 @@ void handle_request(struct http_socket* socket, struct http_request* req){
 
     	if(!strcmp(req->uri, "/loadavg")){
 			DEBUG_PRINT("/roadavg\n");
-
+			//WRAP the callback if needed
 			if(req->cb[0] != '\0'){
 				print_to_buffer(&socket->data, "%s(", req->cb);
 				loadavg(&socket->data);
@@ -127,7 +137,7 @@ void handle_request(struct http_socket* socket, struct http_request* req){
     	}
 		else if(!strcmp(req->uri, "/meminfo")){
 			DEBUG_PRINT("/meminfo\n");
-
+			//Wrap the callback if needed
 			if(req->cb[0] != '\0'){
 				DEBUG_PRINT("WRAPPING CALLBACK\n");
 				print_to_buffer(&socket->data, "%s(", req->cb);
@@ -176,10 +186,10 @@ void handle_request(struct http_socket* socket, struct http_request* req){
     }
 }
 
+/*	Handle serving a file
+*/
 void handle_static_request(struct http_socket* socket, struct http_request* req){
 	char filename[BUF_SIZE], filetype[BUF_SIZE];
-
-	DEBUG_PRINT("derp");
 	
 	strcpy(filename, file_path);
 	strcat(filename, req->uri);
@@ -217,6 +227,7 @@ void handle_static_request(struct http_socket* socket, struct http_request* req)
 	finish_read(socket);
 }
 
+/*	Print to the buffer struct, increase the buffer as needed*/
 void print_to_buffer(struct buffer* b, char* str, ...){
 	va_list arg_ptr;
 	int n;
@@ -238,6 +249,7 @@ void print_to_buffer(struct buffer* b, char* str, ...){
 	while(n >= size_left);
 }
 
+/* Write plain text to the buffer */
 void send_plain_text(struct http_socket* s, int err){
 	if(err)
 		print_to_buffer(&s->write, "HTTP/1.1 %d\r\n", err);
@@ -249,7 +261,7 @@ void send_plain_text(struct http_socket* s, int err){
 	print_to_buffer(&s->write, "\r\n");
 	finish_read(s);
 }
-
+/* Write json to the buffer*/
 void send_json(struct http_socket* s, int err){
 	if(err)
 		print_to_buffer(&s->write, "HTTP/1.1 %d\r\n", err);
@@ -264,9 +276,9 @@ void send_json(struct http_socket* s, int err){
 	finish_read(s);
 }
 
+//We don't have to handle dynamic requests!
 void handle_dynamic_request(struct http_socket* socket, struct http_request* req){
 	//char cgi_args[BUF_SIZE], filename[BUF_SIZE];
-
 
 }
 
@@ -278,6 +290,7 @@ int file_exist(char* filename){
     return 0;
 }
 
+//Write the error to the buffer
 void write_error(struct http_socket* s,int error){
 	DEBUG_PRINT("Http error: %d\n", error);
 	print_to_buffer(&s->data,"HTTP Error %d\n", error);
@@ -406,6 +419,7 @@ int file_load(struct http_socket* http, char* filename) {
     return 0;
 }
 
+//Clean up after a read event
 void finish_read(struct http_socket* socket){
 	socket->write.last = socket->write.pos;
 	socket->data.last = socket->data.pos;
@@ -413,6 +427,7 @@ void finish_read(struct http_socket* socket){
 	socket->data.pos = 0;
 	watch_write(socket);
 }
+
 
 void set_path(char* path) {
     file_path = path;

@@ -6,6 +6,7 @@
 #include <ctype.h>
 #define BUF_LEN 4096
 
+//Returns 1 if there is a header in the buffer, looks for the \r\n\r\n
 int parse_is_header_finished(char* buf, int buf_len){
     int i;  	
     for(i=0; i<buf_len - 3; i++){
@@ -18,6 +19,8 @@ int parse_is_header_finished(char* buf, int buf_len){
     return 0;
 }
 
+
+//Returns 1 if the header was parsed into the http_request
 int parse_header(char* buf, int buf_len, struct http_request* req){
 	if(!parse_is_header_finished(buf,buf_len)){
 		return 0;
@@ -48,6 +51,7 @@ int parse_header(char* buf, int buf_len, struct http_request* req){
 	return 1;
 }
 
+//get the call out of the uri
  void parse_uri_callback(struct http_request* r){
 	int i;
 
@@ -90,6 +94,7 @@ int parse_header(char* buf, int buf_len, struct http_request* req){
 	}
 }
 
+//Returns the index where \n is, probably don't need this
 int parse_string(char* start, int buf_len){
 	int i;
 	for(i=0; i<buf_len;i++){

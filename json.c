@@ -6,6 +6,9 @@
 #include "events.h"
 #include <string.h>
 #define PROC_BUFFER_SIZE 512
+
+
+//looks in /proc/loadavg and stores the json in the buffer
 int loadavg(struct buffer* buf) {
 	FILE *f = fopen("/proc/loadavg", "r");
 	size_t size = 0;
@@ -22,6 +25,8 @@ int loadavg(struct buffer* buf) {
 	fclose (f);
     return 0;
 }
+
+//looks in /proc/meminfo and stores the json in the buffer
 int meminfo(struct buffer* buf) {
 	FILE *f = fopen("/proc/meminfo", "r");
 	size_t size = 0;
