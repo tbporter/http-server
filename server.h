@@ -6,8 +6,10 @@
 
 #include "list.h"
 #include "threadpool.h"
+#include "parse.h"
 
 struct http_socket;
+struct http_req_buffer;
 
 int open_listenfd(int port);
 void* check_connections(void* data);
@@ -37,7 +39,6 @@ struct http_socket {
     bool mmaped;
     time_t last_access;
     struct list_elem elem;
-
 
     bool keep_alive;
 };

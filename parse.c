@@ -32,7 +32,8 @@ int parse_header(char* buf, int buf_len, struct http_request* req){
 		DEBUG_PRINT("no string!\n");
 		return 0;
 	}
-
+	if(str_s_len>BUF_LEN)
+		str_s_len = BUF_LEN;
 	strncpy(tmp, str_s, str_s_len);
 
 	sscanf(tmp, "%s %s %s\n", req->method, req->uri, req->ver);

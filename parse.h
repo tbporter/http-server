@@ -2,6 +2,8 @@
 #define _PARSE_H
 
 #include <stdbool.h>
+#include "server.h"
+struct buffer;
 struct http_request {
     char* method;
     char* uri;
