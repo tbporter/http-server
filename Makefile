@@ -10,7 +10,6 @@ CFLAGS=-Wall -Werror -Wmissing-prototypes
 
 OBJECTS=server.o list.o threadpool.o parse.o events.o json.o
 HEADERS=server.h list.h threadpool.h parse.h events.h json.h
-PLUGINDIR=plugins
 
 default: sysstatd
 
