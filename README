@@ -1,0 +1,9 @@
+Group394:
+travis42
+cwinkows
+
+
+This is an event driven http-server. which has two events: a write and read event. 
+Sockets can have two states, reading or writing. During a poll, if a socket needs to be read, a read event is created. The read event will read as much as it can from the socket into a buffer.
+If the buffer doesn't contain a proper html header, we didn't read enough so generate another read event.
+Else if we have what we need in the buffer, go ahead and parse the header and do whatever needs to be done (serve a file, do a systemtask, error, etc). Once it is done processing, it creates a write event. Polling will start a write event when a socket is able to be written. A write event writes as much of it's buffer as it can to a socket. If it finishes, either end the connection or keep it alive by adding a read event.
